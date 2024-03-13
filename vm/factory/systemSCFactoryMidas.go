@@ -175,7 +175,7 @@ func (scf *systemSCFactoryMidas) createValidatorContract() (vm.SystemSmartContra
 			ShardCoordinator:       scf.shardCoordinator,
 			EnableEpochsHandler:    scf.enableEpochsHandler,
 		},
-		AbstractStakingAddr:    AbstractStakingSCAddress,
+		AbstractStakingAddr: AbstractStakingSCAddress,
 	}
 	validatorSC, err := systemSmartContracts.NewValidatorSmartContractMidas(args)
 	return validatorSC, err
@@ -187,20 +187,23 @@ func (scf *systemSCFactoryMidas) createDelegationContract() (vm.SystemSmartContr
 		return nil, fmt.Errorf("%w for DelegationManagerSystemSCConfig.ConfigChangeAddress in systemSCFactory", vm.ErrInvalidAddress)
 	}
 
-	argsDelegation := systemSmartContracts.ArgsNewDelegation{
-		DelegationSCConfig:     scf.systemSCConfig.DelegationSystemSCConfig,
-		StakingSCConfig:        scf.systemSCConfig.StakingSystemSCConfig,
-		Eei:                    scf.systemEI,
-		SigVerifier:            scf.sigVerifier,
-		DelegationMgrSCAddress: vm.DelegationManagerSCAddress,
-		StakingSCAddress:       vm.StakingSCAddress,
-		ValidatorSCAddress:     vm.ValidatorSCAddress,
-		GasCost:                scf.gasCost,
-		Marshalizer:            scf.marshalizer,
-		EndOfEpochAddress:      vm.EndOfEpochAddress,
-		GovernanceSCAddress:    vm.GovernanceSCAddress,
-		AddTokensAddress:       addTokensAddress,
-		EnableEpochsHandler:    scf.enableEpochsHandler,
+	argsDelegation := systemSmartContracts.ArgsNewDelegationMidas{
+		ArgsNewDelegation: systemSmartContracts.ArgsNewDelegation{
+			DelegationSCConfig:     scf.systemSCConfig.DelegationSystemSCConfig,
+			StakingSCConfig:        scf.systemSCConfig.StakingSystemSCConfig,
+			Eei:                    scf.systemEI,
+			SigVerifier:            scf.sigVerifier,
+			DelegationMgrSCAddress: vm.DelegationManagerSCAddress,
+			StakingSCAddress:       vm.StakingSCAddress,
+			ValidatorSCAddress:     vm.ValidatorSCAddress,
+			GasCost:                scf.gasCost,
+			Marshalizer:            scf.marshalizer,
+			EndOfEpochAddress:      vm.EndOfEpochAddress,
+			GovernanceSCAddress:    vm.GovernanceSCAddress,
+			AddTokensAddress:       addTokensAddress,
+			EnableEpochsHandler:    scf.enableEpochsHandler,
+		},
+		AbstractStakingAddr: AbstractStakingSCAddress,
 	}
 	delegation, err := systemSmartContracts.NewDelegationSystemSCMidas(argsDelegation)
 	return delegation, err

@@ -159,7 +159,7 @@ func (d *delegationMidas) Execute(args *vmcommon.ContractCallInput) vmcommon.Ret
 	case "unBondNodes":
 		return d.unBondNodes(args)
 	case "unJailNodes":
-		return d.unJailNodes(args)
+		return d.unJailNodes(args) // TODO: Should we also overwrite this since it calls the validator unJail endpoint?
 	case delegate:
 		return d.delegate(args)
 	case "unDelegate":
@@ -263,6 +263,112 @@ func (d *delegationMidas) init(args *vmcommon.ContractCallInput) vmcommon.Return
 	}
 
 	return vmcommon.Ok
+}
+
+func (d *delegationMidas) initFromValidatorData(args *vmcommon.ContractCallInput) vmcommon.ReturnCode {
+	returnCode := d.checkArgumentsForValidatorToDelegation(args)
+	if returnCode != vmcommon.Ok {
+		return returnCode
+	}
+	if len(args.Arguments) != 3 {
+		d.eei.AddReturnMessage("invalid number of arguments")
+		return vmcommon.UserError
+	}
+
+	maxDelegationCap := big.NewInt(0).SetBytes(args.Arguments[1])
+	if maxDelegationCap.Cmp(zero) < 0 {
+		d.eei.AddReturnMessage("invalid max delegation cap")
+		return vmcommon.UserError
+	}
+	serviceFee := big.NewInt(0).SetBytes(args.Arguments[2]).Uint64()
+	if serviceFee < d.minServiceFee || serviceFee > d.maxServiceFee {
+		d.eei.AddReturnMessage("service fee out of bounds")
+		return vmcommon.UserError
+	}
+
+	ownerAddress := args.Arguments[0]
+	argumentsForChange := [][]byte{ownerAddress, args.RecipientAddr}
+	vmOutput, err := d.executeOnValidatorSC(d.delegationMgrSCAddress, "changeOwnerOfValidatorData", argumentsForChange, zero)
+	if err != nil {
+		d.eei.AddReturnMessage(err.Error())
+		return vmcommon.UserError
+	}
+	if vmOutput.ReturnCode != vmcommon.Ok {
+		return vmOutput.ReturnCode
+	}
+
+	validatorData, returnCode := d.getAndVerifyValidatorData(args.RecipientAddr)
+	if returnCode != vmcommon.Ok {
+		return returnCode
+	}
+
+	delegationManagement, err := getDelegationManagement(d.eei, d.marshalizer, d.delegationMgrSCAddress)
+	if err != nil {
+		d.eei.AddReturnMessage(err.Error())
+		return vmcommon.UserError
+	}
+
+	returnCode = d.initDelegationStructures(delegationManagement.MinDeposit, ownerAddress, serviceFee, maxDelegationCap)
+	if returnCode != vmcommon.Ok {
+		return returnCode
+	}
+
+	dStatus := createNewDelegationContractStatus()
+	err = d.updateDelegationStatusFromValidatorData(validatorData, dStatus)
+	if err != nil {
+		d.eei.AddReturnMessage(err.Error())
+		return vmcommon.UserError
+	}
+
+	returnCode = d.delegateUser(args, validatorData.TotalStakeValue, big.NewInt(0), ownerAddress, dStatus)
+	if returnCode != vmcommon.Ok {
+		return returnCode
+	}
+
+	return vmcommon.Ok
+}
+
+func (d *delegationMidas) mergeValidatorDataToDelegation(args *vmcommon.ContractCallInput) vmcommon.ReturnCode {
+	returnCode := d.checkArgumentsForValidatorToDelegation(args)
+	if returnCode != vmcommon.Ok {
+		return returnCode
+	}
+	if len(args.Arguments) != 1 {
+		d.eei.AddReturnMessage("invalid number of arguments")
+		return vmcommon.UserError
+	}
+
+	validatorAddress := args.Arguments[0]
+	validatorData, returnCode := d.getAndVerifyValidatorData(validatorAddress)
+	if returnCode != vmcommon.Ok {
+		return returnCode
+	}
+
+	argumentsForMerge := [][]byte{validatorAddress, args.RecipientAddr}
+	vmOutput, err := d.executeOnValidatorSC(d.delegationMgrSCAddress, "mergeValidatorData", argumentsForMerge, zero)
+	if err != nil {
+		d.eei.AddReturnMessage(err.Error())
+		return vmcommon.UserError
+	}
+	if vmOutput.ReturnCode != vmcommon.Ok {
+		return vmOutput.ReturnCode
+	}
+
+	dStatus, err := d.getDelegationStatus()
+	if err != nil {
+		d.eei.AddReturnMessage(err.Error())
+		return vmcommon.UserError
+	}
+
+	err = d.updateDelegationStatusFromValidatorData(validatorData, dStatus)
+	if err != nil {
+		d.eei.AddReturnMessage(err.Error())
+		return vmcommon.UserError
+	}
+
+	d.createAndAddLogEntry(args, validatorAddress)
+
+	return d.delegateUser(args, validatorData.TotalStakeValue, big.NewInt(0), validatorAddress, dStatus)
 }
 
 func (d *delegationMidas) delegate(args *vmcommon.ContractCallInput) vmcommon.ReturnCode {
@@ -399,6 +505,7 @@ func (d *delegationMidas) unDelegate(args *vmcommon.ContractCallInput) vmcommon.
 		return vmcommon.UserError
 	}
 
+	// TODO: Proxy this through Abstract Staking
 	returnData, returnCode := d.executeOnValidatorSCWithValueInArgs(args.RecipientAddr, "unStakeTokens", totalPowerSubstracted)
 	if returnCode != vmcommon.Ok {
 		return returnCode
@@ -629,7 +736,7 @@ func (d *delegationMidas) unJailNodes(args *vmcommon.ContractCallInput) vmcommon
 		return vmcommon.UserError
 	}
 
-	// TODO: Add support for ESDT
+	// TODO: Add support for ESDT/proxy this through Abstract Staking?
 	//vmOutput, err := d.executeOnValidatorSC(args.RecipientAddr, "unJail", blsKeys, args.CallValue)
 	//if err != nil {
 	//	d.eei.AddReturnMessage(err.Error())
@@ -712,6 +819,290 @@ func (d *delegationMidas) claimRewards(args *vmcommon.ContractCallInput) vmcommo
 	}
 
 	d.createAndAddLogEntry(args, unclaimedRewardsBytes, boolToSlice(wasDeleted))
+
+	return vmcommon.Ok
+}
+
+func (d *delegationMidas) stakeNodes(args *vmcommon.ContractCallInput) vmcommon.ReturnCode {
+	returnCode := d.checkOwnerCallValueGasAndDuplicates(args)
+	if returnCode != vmcommon.Ok {
+		return returnCode
+	}
+	if len(args.Arguments) == 0 {
+		d.eei.AddReturnMessage("not enough arguments")
+		return vmcommon.FunctionWrongSignature
+	}
+	status, err := d.getDelegationStatus()
+	if err != nil {
+		d.eei.AddReturnMessage(err.Error())
+		return vmcommon.UserError
+	}
+	listToCheck := append(status.NotStakedKeys, status.UnStakedKeys...)
+	foundAll := verifyIfAllBLSPubKeysExist(listToCheck, args.Arguments)
+	if !foundAll {
+		d.eei.AddReturnMessage(vm.ErrBLSPublicKeyMismatch.Error())
+		return vmcommon.UserError
+	}
+
+	globalFund, err := d.getGlobalFundData()
+	if err != nil {
+		d.eei.AddReturnMessage(err.Error())
+		return vmcommon.UserError
+	}
+
+	numNodesToStake := big.NewInt(int64(len(args.Arguments) + len(status.StakedKeys)))
+	stakeValue := big.NewInt(0).Mul(d.nodePrice, numNodesToStake)
+
+	if globalFund.TotalActive.Cmp(stakeValue) < 0 {
+		d.eei.AddReturnMessage("not enough in total active to stake")
+		return vmcommon.UserError
+	}
+
+	stakeArgs := makeStakeArgs(listToCheck, args.Arguments)
+	// TODO: Proxy this through Abstract Staking?
+	vmOutput, err := d.executeOnValidatorSC(args.RecipientAddr, "stake", stakeArgs, big.NewInt(0))
+	if err != nil {
+		d.eei.AddReturnMessage(err.Error())
+		return vmcommon.UserError
+	}
+	if vmOutput.ReturnCode != vmcommon.Ok {
+		return vmOutput.ReturnCode
+	}
+
+	err = d.updateDelegationStatusAfterStake(status, vmOutput.ReturnData, args.Arguments)
+	if err != nil {
+		d.eei.AddReturnMessage(err.Error())
+		return vmcommon.UserError
+	}
+
+	d.createAndAddLogEntry(args, args.Arguments...)
+
+	return vmcommon.Ok
+}
+
+func (d *delegationMidas) unStakeNodes(args *vmcommon.ContractCallInput) vmcommon.ReturnCode {
+	returnCode := d.checkOwnerCallValueGasAndDuplicates(args)
+	if returnCode != vmcommon.Ok {
+		return returnCode
+	}
+	if len(args.Arguments) == 0 {
+		d.eei.AddReturnMessage("not enough arguments")
+		return vmcommon.FunctionWrongSignature
+	}
+	status, err := d.getDelegationStatus()
+	if err != nil {
+		d.eei.AddReturnMessage(err.Error())
+		return vmcommon.UserError
+	}
+	foundAll := verifyIfAllBLSPubKeysExist(status.StakedKeys, args.Arguments)
+	if !foundAll {
+		d.eei.AddReturnMessage(vm.ErrBLSPublicKeyMismatch.Error())
+		return vmcommon.UserError
+	}
+
+	// TODO: Proxy this through Abstract Staking?
+	vmOutput, err := d.executeOnValidatorSC(args.RecipientAddr, "unStakeNodes", args.Arguments, big.NewInt(0))
+	if err != nil {
+		d.eei.AddReturnMessage(err.Error())
+		return vmcommon.UserError
+	}
+	if vmOutput.ReturnCode != vmcommon.Ok {
+		return vmOutput.ReturnCode
+	}
+
+	successKeys, _ := getSuccessAndUnSuccessKeys(vmOutput.ReturnData, args.Arguments)
+	for _, successKey := range successKeys {
+		status.StakedKeys, status.UnStakedKeys = moveNodeFromList(status.StakedKeys, status.UnStakedKeys, successKey)
+	}
+
+	err = d.saveDelegationStatus(status)
+	if err != nil {
+		d.eei.AddReturnMessage(err.Error())
+		return vmcommon.UserError
+	}
+
+	d.createAndAddLogEntry(args, successKeys...)
+
+	return vmcommon.Ok
+}
+
+func (d *delegationMidas) unBondNodes(args *vmcommon.ContractCallInput) vmcommon.ReturnCode {
+	returnCode := d.checkOwnerCallValueGasAndDuplicates(args)
+	if returnCode != vmcommon.Ok {
+		return returnCode
+	}
+	if len(args.Arguments) == 0 {
+		d.eei.AddReturnMessage("not enough arguments")
+		return vmcommon.FunctionWrongSignature
+	}
+	status, err := d.getDelegationStatus()
+	if err != nil {
+		d.eei.AddReturnMessage(err.Error())
+		return vmcommon.UserError
+	}
+
+	// even some staked keys can be unbonded - as they could have been forced unstaked by protocol because of not enough funds
+	listToCheck := append(status.UnStakedKeys, status.StakedKeys...)
+	foundAll := verifyIfAllBLSPubKeysExist(listToCheck, args.Arguments)
+	if !foundAll {
+		d.eei.AddReturnMessage(vm.ErrBLSPublicKeyMismatch.Error())
+		return vmcommon.UserError
+	}
+
+	// TODO: Proxy this through Abstract Staking?
+	vmOutput, err := d.executeOnValidatorSC(args.RecipientAddr, "unBondNodes", args.Arguments, big.NewInt(0))
+	if err != nil {
+		d.eei.AddReturnMessage(err.Error())
+		return vmcommon.UserError
+	}
+	if vmOutput.ReturnCode != vmcommon.Ok {
+		return vmOutput.ReturnCode
+	}
+
+	successKeys, _ := getSuccessAndUnSuccessKeys(vmOutput.ReturnData, args.Arguments)
+	for _, successKey := range successKeys {
+		status.UnStakedKeys, status.NotStakedKeys = moveNodeFromList(status.UnStakedKeys, status.NotStakedKeys, successKey)
+		status.StakedKeys, status.NotStakedKeys = moveNodeFromList(status.StakedKeys, status.NotStakedKeys, successKey)
+	}
+
+	err = d.saveDelegationStatus(status)
+	if err != nil {
+		d.eei.AddReturnMessage(err.Error())
+		return vmcommon.UserError
+	}
+
+	return vmcommon.Ok
+}
+
+func (d *delegationMidas) delegateUser(
+	args *vmcommon.ContractCallInput,
+	delegationValue *big.Int,
+	callValue *big.Int,
+	callerAddr []byte,
+	dStatus *DelegationContractStatus,
+) vmcommon.ReturnCode {
+	dConfig, err := d.getDelegationContractConfig()
+	if err != nil {
+		d.eei.AddReturnMessage(err.Error())
+		return vmcommon.UserError
+	}
+	globalFund, err := d.getGlobalFundData()
+	if err != nil {
+		d.eei.AddReturnMessage(err.Error())
+		return vmcommon.UserError
+	}
+
+	err = d.checkAndUpdateOwnerInitialFunds(dConfig, callerAddr, delegationValue)
+	if err != nil {
+		d.eei.AddReturnMessage(err.Error())
+		return vmcommon.UserError
+	}
+
+	isNew, delegator, err := d.getOrCreateDelegatorData(callerAddr)
+	if err != nil {
+		d.eei.AddReturnMessage(err.Error())
+		return vmcommon.UserError
+	}
+
+	if isNew {
+		delegator.RewardsCheckpoint = d.eei.BlockChainHook().CurrentEpoch() + 1
+		delegator.UnClaimedRewards = big.NewInt(0)
+	} else {
+		err = d.computeAndUpdateRewards(callerAddr, delegator)
+		if err != nil {
+			d.eei.AddReturnMessage(err.Error())
+			return vmcommon.UserError
+		}
+	}
+
+	d.createAndAddLogEntryForDelegate(args, delegationValue, globalFund, delegator, dStatus, isNew)
+
+	return d.finishDelegateUser(globalFund, delegator, dConfig, dStatus,
+		callerAddr, args.RecipientAddr, delegationValue, callValue, isNew, true)
+}
+
+func (d *delegationMidas) finishDelegateUser(
+	globalFund *GlobalFundData,
+	delegator *DelegatorData,
+	dConfig *DelegationConfig,
+	dStatus *DelegationContractStatus,
+	callerAddr []byte,
+	scAddress []byte,
+	delegateValue *big.Int,
+	callValue *big.Int,
+	isNew bool,
+	checkDelegationCap bool,
+) vmcommon.ReturnCode {
+	globalFund.TotalActive.Add(globalFund.TotalActive, delegateValue)
+	withDelegationCap := dConfig.MaxDelegationCap.Cmp(zero) != 0
+	if withDelegationCap && checkDelegationCap && globalFund.TotalActive.Cmp(dConfig.MaxDelegationCap) > 0 {
+		d.eei.AddReturnMessage("total delegation cap reached")
+		return vmcommon.UserError
+	}
+
+	var err error
+	if len(delegator.ActiveFund) == 0 {
+		var fundKey []byte
+		fundKey, err = d.createAndSaveNextKeyFund(callerAddr, delegateValue, active)
+		if err != nil {
+			d.eei.AddReturnMessage(err.Error())
+			return vmcommon.UserError
+		}
+
+		delegator.ActiveFund = fundKey
+		if isNew {
+			dStatus.NumUsers++
+		}
+	} else {
+		err = d.addValueToFund(delegator.ActiveFund, delegateValue)
+		if err != nil {
+			d.eei.AddReturnMessage(err.Error())
+			return vmcommon.UserError
+		}
+	}
+
+	err = d.checkActiveFund(delegator)
+	if err != nil {
+		d.eei.AddReturnMessage(err.Error())
+		return vmcommon.UserError
+	}
+
+	stakeArgs := d.makeStakeArgsIfAutomaticActivation(dConfig, dStatus, globalFund)
+	// TODO: This should be done by Abstract Staking contract instead
+	vmOutput, err := d.executeOnValidatorSC(scAddress, "stake", stakeArgs, callValue)
+	if err != nil {
+		d.eei.AddReturnMessage(err.Error())
+		return vmcommon.UserError
+	}
+	if vmOutput.ReturnCode != vmcommon.Ok {
+		return vmOutput.ReturnCode
+	}
+
+	if len(stakeArgs) > 0 {
+		err = d.updateDelegationStatusAfterStake(dStatus, vmOutput.ReturnData, stakeArgs)
+		if err != nil {
+			d.eei.AddReturnMessage(err.Error())
+			return vmcommon.UserError
+		}
+	}
+
+	err = d.saveDelegationStatus(dStatus)
+	if err != nil {
+		d.eei.AddReturnMessage(err.Error())
+		return vmcommon.UserError
+	}
+
+	err = d.saveGlobalFundData(globalFund)
+	if err != nil {
+		d.eei.AddReturnMessage(err.Error())
+		return vmcommon.UserError
+	}
+
+	err = d.saveDelegatorData(callerAddr, delegator)
+	if err != nil {
+		d.eei.AddReturnMessage(err.Error())
+		return vmcommon.UserError
+	}
 
 	return vmcommon.Ok
 }

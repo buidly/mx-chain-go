@@ -151,7 +151,7 @@ func (v *validatorSCMidas) Execute(args *vmcommon.ContractCallInput) vmcommon.Re
 	case "unStake":
 		return v.unStake(args)
 	case "unStakeNodes": // TODO: Make these to only be callable by delegation contracts or proxy it through abstract staking?
-		return v.unStakeNodes(args)
+		return v.unStakeNodes(args) // TODO: Make these to only be callable by delegation contracts or proxy it through abstract staking?
 	case "unStakeTokens":
 		return v.unStakeTokens(args)
 	case "unBond":
@@ -160,8 +160,6 @@ func (v *validatorSCMidas) Execute(args *vmcommon.ContractCallInput) vmcommon.Re
 		return v.unBondNodes(args)  // TODO: Make these to only be callable by delegation contracts or proxy it through abstract staking?
 	case "unBondTokens":
 		return v.unBondTokens(args)
-	case "claim":
-		return v.claim(args)
 	case "get":
 		return v.get(args)
 	case "setConfig":
@@ -201,7 +199,10 @@ func (v *validatorSCMidas) stake(args *vmcommon.ContractCallInput) vmcommon.Retu
 		v.eei.AddReturnMessage("stake function not allowed to be called by address " + string(args.CallerAddr))
 		return vmcommon.UserError
 	}
-
+	if args.CallValue.Cmp(zero) != 0 {
+		v.eei.AddReturnMessage(vm.TransactionValueMustBeZero)
+		return vmcommon.UserError
+	}
 	err := v.eei.UseGas(v.gasCost.MetaChainSystemSCsCost.Stake)
 	if err != nil {
 		v.eei.AddReturnMessage(vm.InsufficientGasLimit)
@@ -223,6 +224,7 @@ func (v *validatorSCMidas) stake(args *vmcommon.ContractCallInput) vmcommon.Retu
 	lenArgs := len(args.Arguments)
 	validatorAddress := args.Arguments[lenArgs - 2]
 	totalPower := big.NewInt(0).SetBytes(args.Arguments[lenArgs - 1])
+	blsKeys := args.Arguments[:lenArgs - 2]
 
 	validatorConfig := v.getConfig(v.eei.BlockChainHook().CurrentEpoch())
 	registrationData, err := v.getOrCreateRegistrationData(validatorAddress)
@@ -247,6 +249,11 @@ func (v *validatorSCMidas) stake(args *vmcommon.ContractCallInput) vmcommon.Retu
 		return v.updateStakeValue(registrationData, validatorAddress)
 	}
 
+	if !isNumArgsCorrectToStake(blsKeys) {
+		v.eei.AddReturnMessage("invalid number of arguments to call stake")
+		return vmcommon.UserError
+	}
+
 	maxNodesToRun := big.NewInt(0).SetBytes(args.Arguments[0]).Uint64()
 	if maxNodesToRun == 0 {
 		v.eei.AddReturnMessage("number of nodes argument must be greater than zero")
@@ -267,7 +274,7 @@ func (v *validatorSCMidas) stake(args *vmcommon.ContractCallInput) vmcommon.Retu
 	registrationData.MaxStakePerNode = big.NewInt(0).Set(registrationData.TotalStakeValue)
 	registrationData.Epoch = v.eei.BlockChainHook().CurrentEpoch()
 
-	blsKeys, newKeys, err := v.registerBLSKeys(registrationData, validatorAddress, validatorAddress, args.Arguments)
+	blsKeys, newKeys, err := v.registerBLSKeys(registrationData, validatorAddress, validatorAddress, blsKeys)
 	if err != nil {
 		v.eei.AddReturnMessage("cannot register bls key: error " + err.Error())
 		return vmcommon.UserError
@@ -279,12 +286,6 @@ func (v *validatorSCMidas) stake(args *vmcommon.ContractCallInput) vmcommon.Retu
 
 	numQualified := big.NewInt(0).Div(registrationData.TotalStakeValue, validatorConfig.NodePrice)
 	if uint64(len(registrationData.BlsPubKeys)) > numQualified.Uint64() {
-		if !v.enableEpochsHandler.IsFlagEnabled(common.StakingV2Flag) {
-			// backward compatibility
-			v.eei.AddReturnMessage("insufficient funds")
-			return vmcommon.OutOfFunds
-		}
-
 		if uint64(len(newKeys)) > numQualified.Uint64() {
 			totalNeeded := big.NewInt(0).Mul(big.NewInt(int64(len(newKeys))), validatorConfig.NodePrice)
 			v.eei.AddReturnMessage("not enough total stake to activate nodes," +
@@ -341,11 +342,7 @@ func (v *validatorSCMidas) unStake(args *vmcommon.ContractCallInput) vmcommon.Re
 		return returnCode
 	}
 
-	v.unStakeNodesFromStakingSC(blsKeys, registrationData)
-	if !v.enableEpochsHandler.IsFlagEnabled(common.StakingV2Flag) {
-		// unStakeV1 returns from this point
-		return vmcommon.Ok
-	}
+	numSuccessFromActive, numSuccessFromWaiting := v.unStakeNodesFromStakingSC(blsKeys, registrationData)
 
 	if totalPower.Cmp(registrationData.TotalStakeValue) > 0 {
 		v.eei.AddReturnMessage("New total power after unstake can not be greater than old total power")
@@ -358,9 +355,12 @@ func (v *validatorSCMidas) unStake(args *vmcommon.ContractCallInput) vmcommon.Re
 	if registrationData.NumRegistered == 0 {
 		unStakedEpoch = 0
 	}
-	returnCode = v.processUnStakeValue(registrationData, difference, unStakedEpoch)
-	if returnCode != vmcommon.Ok {
-		return returnCode
+
+	if numSuccessFromActive + numSuccessFromWaiting > 0 {
+		returnCode = v.processUnStakeValue(registrationData, difference, unStakedEpoch)
+		if returnCode != vmcommon.Ok {
+			return returnCode
+		}
 	}
 
 	if registrationData.NumRegistered > 0 && registrationData.TotalStakeValue.Cmp(v.minDeposit) < 0 {
@@ -377,14 +377,68 @@ func (v *validatorSCMidas) unStake(args *vmcommon.ContractCallInput) vmcommon.Re
 	return vmcommon.Ok
 }
 
+func (v *validatorSCMidas) unStakeTokens(args *vmcommon.ContractCallInput) vmcommon.ReturnCode {
+	if !bytes.Equal(args.CallerAddr, v.abstractStakingAddr) {
+		v.eei.AddReturnMessage("unStakeTokens function not allowed to be called by address " + string(args.CallerAddr))
+		return vmcommon.UserError
+	}
+
+	if len(args.Arguments) != 2 {
+		v.eei.AddReturnMessage(fmt.Sprintf("invalid number of arguments: expected %d, got %d", 2, 0))
+		return vmcommon.UserError
+	}
+
+	validatorAddress := args.Arguments[0]
+	totalPower := big.NewInt(0).SetBytes(args.Arguments[1])
+
+	registrationData, returnCode := v.basicCheckForUnStakeUnBond(args, validatorAddress)
+	if returnCode != vmcommon.Ok {
+		return returnCode
+	}
+	if v.isUnStakeUnBondPaused() {
+		v.eei.AddReturnMessage("unStake/unBond is paused as not enough total staked in protocol")
+		return vmcommon.UserError
+	}
+
+	err := v.eei.UseGas(v.gasCost.MetaChainSystemSCsCost.UnStakeTokens)
+	if err != nil {
+		v.eei.AddReturnMessage(vm.InsufficientGasLimit)
+		return vmcommon.OutOfGas
+	}
+
+	unStakeValue := big.NewInt(0).Sub(registrationData.TotalStakeValue, totalPower)
+	if unStakeValue.Cmp(zero) < 0 {
+		v.eei.AddReturnMessage("invalid value to unstake")
+		return vmcommon.UserError
+	}
+
+	unStakedEpoch := v.eei.BlockChainHook().CurrentEpoch()
+	if registrationData.NumRegistered == 0 {
+		unStakedEpoch = 0
+	}
+	returnCode = v.processUnStakeValue(registrationData, unStakeValue, unStakedEpoch)
+	if returnCode != vmcommon.Ok {
+		return returnCode
+	}
+
+	if registrationData.NumRegistered > 0 && registrationData.TotalStakeValue.Cmp(v.minDeposit) < 0 {
+		v.eei.AddReturnMessage("cannot unStake tokens, the validator would remain without min deposit, nodes are still active")
+		return vmcommon.UserError
+	}
+
+	err = v.saveRegistrationData(validatorAddress, registrationData)
+	if err != nil {
+		v.eei.AddReturnMessage("cannot save registration data: error " + err.Error())
+		return vmcommon.UserError
+	}
+
+	return vmcommon.Ok
+}
+
 func (v *validatorSCMidas) unBond(args *vmcommon.ContractCallInput) vmcommon.ReturnCode {
 	if !bytes.Equal(args.CallerAddr, v.abstractStakingAddr) {
 		v.eei.AddReturnMessage("unBond function not allowed to be called by address " + string(args.CallerAddr))
 		return vmcommon.UserError
-	}
-
-	if !v.enableEpochsHandler.IsFlagEnabled(common.StakingV2Flag) {
-		return v.unBondV1(args)
 	}
 
 	if v.isUnStakeUnBondPaused() {
@@ -410,6 +464,67 @@ func (v *validatorSCMidas) unBond(args *vmcommon.ContractCallInput) vmcommon.Ret
 	returnCode = v.updateRegistrationDataAfterUnBond(registrationData, unBondedKeys, validatorAddress)
 	if returnCode != vmcommon.Ok {
 		return returnCode
+	}
+
+	return vmcommon.Ok
+}
+
+// TODO: Should this be proxied through Abstract Staking?
+func (v *validatorSCMidas) unBondTokens(args *vmcommon.ContractCallInput) vmcommon.ReturnCode {
+	registrationData, returnCode := v.basicCheckForUnStakeUnBond(args, args.CallerAddr)
+	if returnCode != vmcommon.Ok {
+		return returnCode
+	}
+	if v.isUnStakeUnBondPaused() {
+		v.eei.AddReturnMessage("unStake/unBond is paused as not enough total staked in protocol")
+		return vmcommon.UserError
+	}
+	err := v.eei.UseGas(v.gasCost.MetaChainSystemSCsCost.UnBondTokens)
+	if err != nil {
+		v.eei.AddReturnMessage(vm.InsufficientGasLimit)
+		return vmcommon.OutOfGas
+	}
+
+	valueToUnBond := big.NewInt(0)
+	if len(args.Arguments) > 1 {
+		v.eei.AddReturnMessage("too many arguments")
+		return vmcommon.UserError
+	}
+	if len(args.Arguments) == 1 {
+		valueToUnBond = big.NewInt(0).SetBytes(args.Arguments[0])
+		if valueToUnBond.Cmp(zero) <= 0 {
+			v.eei.AddReturnMessage("cannot unBond negative value or zero value")
+			return vmcommon.UserError
+		}
+	}
+
+	totalUnBond, returnCode := v.unBondTokensFromRegistrationData(registrationData, valueToUnBond)
+	if returnCode != vmcommon.Ok {
+		return returnCode
+	}
+	if totalUnBond.Cmp(zero) == 0 {
+		v.eei.AddReturnMessage("no tokens that can be unbond at this time")
+		if v.enableEpochsHandler.IsFlagEnabled(common.MultiClaimOnDelegationFlag) {
+			return vmcommon.UserError
+		}
+		return vmcommon.Ok
+	}
+
+	if registrationData.NumRegistered > 0 && registrationData.TotalStakeValue.Cmp(v.minDeposit) < 0 {
+		v.eei.AddReturnMessage("cannot unBond tokens, the validator would remain without min deposit, nodes are still active")
+		return vmcommon.UserError
+	}
+
+	//err = v.eei.Transfer(args.CallerAddr, args.RecipientAddr, totalUnBond, nil, 0)
+	//if err != nil {
+	//	v.eei.AddReturnMessage("transfer error on unBond function")
+	//	return vmcommon.UserError
+	//}
+
+	err = v.saveRegistrationData(args.CallerAddr, registrationData)
+	if err != nil {
+		v.eei.AddReturnMessage("cannot save registration data: error " + err.Error())
+		return vmcommon.UserError
 	}
 
 	return vmcommon.Ok

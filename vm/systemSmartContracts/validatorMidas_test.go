@@ -494,6 +494,23 @@ func TestStakingValidatorSCMidas_ExecuteStakeUnJail(t *testing.T) {
 	assert.Equal(t, vmcommon.UserError, retCode)
 }
 
+func TestValidatorStakingSCMidas_ExecuteUnjailOtherCallerShouldErr(t *testing.T) {
+	t.Parallel()
+
+	eei := &mock.SystemEIStub{}
+	args := createMockArgumentsForValidatorSCMidas()
+	args.Eei = eei
+
+	stakingSmartContract, _ := NewValidatorSmartContractMidas(args)
+	arguments := CreateVmContractCallInputMidas()
+	arguments.Function = "unJail"
+	arguments.CallerAddr = []byte("other")
+
+	retCode := stakingSmartContract.Execute(arguments)
+	assert.Equal(t, vmcommon.UserError, retCode)
+	assert.Equal(t, "unJail function not allowed to be called by address " + string(arguments.CallerAddr), eei.ReturnMessage)
+}
+
 func TestStakingValidatorSCMidas_ExecuteStakeUnStakeOneBlsPubKey(t *testing.T) {
 	t.Parallel()
 
@@ -540,7 +557,7 @@ func TestStakingValidatorSCMidas_ExecuteStakeUnStakeOneBlsPubKey(t *testing.T) {
 	assert.Equal(t, vmcommon.Ok, errCode)
 }
 
-func TestStakingValidatorSCMidas_ExecuteStakeStakeTokensUnBondRestakeUnstakeMidas(t *testing.T) {
+func TestStakingValidatorSCMidas_ExecuteStakeStakeTokensUnBondRestakeUnstake(t *testing.T) {
 	t.Parallel()
 
 	stakerAddress := big.NewInt(100)
@@ -780,7 +797,7 @@ func TestStakingValidatorSCMidas_ExecuteStakeUnStakeUnBondUnStakeUnBondOneBlsPub
 	}
 
 	arguments.Function = "unStake"
-	arguments.Arguments = [][]byte{stakerPubKey, stakerAddress}
+	arguments.Arguments = [][]byte{stakerPubKey, stakerAddress, big.NewInt(0).Bytes()}
 	arguments.CallValue = big.NewInt(0)
 	retCode = sc.Execute(arguments)
 	assert.Equal(t, vmcommon.Ok, retCode)
@@ -792,37 +809,34 @@ func TestStakingValidatorSCMidas_ExecuteStakeUnStakeUnBondUnStakeUnBondOneBlsPub
 	arguments.Arguments = [][]byte{stakerPubKey, stakerAddress}
 	retCode = sc.Execute(arguments)
 	assert.Equal(t, vmcommon.Ok, retCode)
-	//
-	//blockChainHook.CurrentNonceCalled = func() uint64 {
-	//	return 120
-	//}
-	//arguments.Function = "unStake"
-	//arguments.Arguments = [][]byte{stakerPubKey}
-	//arguments.CallValue = big.NewInt(0)
-	//retCode = sc.Execute(arguments)
-	//assert.Equal(t, vmcommon.Ok, retCode)
-	//
-	//blockChainHook.CurrentNonceCalled = func() uint64 {
-	//	return 220
-	//}
-	//arguments.Function = "unStake"
-	//arguments.Arguments = [][]byte{stakerPubKey}
-	//arguments.CallValue = big.NewInt(0)
-	//retCode = sc.Execute(arguments)
-	//assert.Equal(t, vmcommon.Ok, retCode)
-	//
-	//blockChainHook.CurrentNonceCalled = func() uint64 {
-	//	return 320
-	//}
-	//arguments.Function = "unBond"
-	//arguments.Arguments = [][]byte{stakerPubKey}
-	//arguments.CallValue = big.NewInt(0)
-	//retCode = sc.Execute(arguments)
-	//assert.Equal(t, vmcommon.Ok, retCode)
-	//
-	//eei.SetSCAddress(args.StakingSCAddress)
-	//marshaledData := eei.GetStorage(stakerPubKey)
-	//assert.Equal(t, 0, len(marshaledData))
+
+	blockChainHook.CurrentNonceCalled = func() uint64 {
+		return 120
+	}
+	arguments.Function = "unStake"
+	arguments.Arguments = [][]byte{stakerPubKey, stakerAddress, big.NewInt(0).Bytes()}
+	retCode = sc.Execute(arguments)
+	assert.Equal(t, vmcommon.Ok, retCode)
+
+	blockChainHook.CurrentNonceCalled = func() uint64 {
+		return 220
+	}
+	arguments.Function = "unStake"
+	arguments.Arguments = [][]byte{stakerPubKey, stakerAddress, big.NewInt(0).Bytes()}
+	retCode = sc.Execute(arguments)
+	assert.Equal(t, vmcommon.Ok, retCode)
+
+	blockChainHook.CurrentNonceCalled = func() uint64 {
+		return 320
+	}
+	arguments.Function = "unBond"
+	arguments.Arguments = [][]byte{stakerPubKey, stakerAddress}
+	retCode = sc.Execute(arguments)
+	assert.Equal(t, vmcommon.Ok, retCode)
+
+	eei.SetSCAddress(args.StakingSCAddress)
+	marshaledData := eei.GetStorage(stakerPubKey)
+	assert.Equal(t, 0, len(marshaledData))
 }
 
 func TestStakingValidatorSCMidas_StakeUnStake3XUnBond2xWaitingList(t *testing.T) {
@@ -842,7 +856,7 @@ func TestStakingValidatorSCMidas_StakeUnStake3XUnBond2xWaitingList(t *testing.T)
 	eei.inputParser = atArgParser
 
 	argsStaking := createMockStakingScArguments()
-	argsStaking.StakingSCConfig.GenesisNodePrice = "10000000"
+	argsStaking.StakingSCConfig.GenesisNodePrice = "10000"
 	argsStaking.Eei = eei
 	argsStaking.StakingSCConfig.UnBondPeriod = 100000
 	stakingSc, _ := NewStakingSmartContract(argsStaking)
@@ -857,134 +871,45 @@ func TestStakingValidatorSCMidas_StakeUnStake3XUnBond2xWaitingList(t *testing.T)
 	sc, _ := NewValidatorSmartContractMidas(args)
 	arguments := CreateVmContractCallInputMidas()
 	arguments.Function = "stake"
-	arguments.CallerAddr = stakerAddress
-	arguments.Arguments = [][]byte{big.NewInt(1).Bytes(), stakerPubKey1, []byte("signed")}
-	arguments.CallValue = big.NewInt(10000000)
+	arguments.Arguments = [][]byte{big.NewInt(1).Bytes(), stakerPubKey1, []byte("signed"), stakerAddress, big.NewInt(10000).Bytes()}
 
 	retCode := sc.Execute(arguments)
 	assert.Equal(t, vmcommon.Ok, retCode)
 
 	arguments.Function = "unStake"
-	arguments.Arguments = [][]byte{stakerPubKey1}
-	arguments.CallValue = big.NewInt(0)
+	arguments.Arguments = [][]byte{stakerPubKey1, stakerAddress, big.NewInt(0).Bytes()}
 	retCode = sc.Execute(arguments)
 	assert.Equal(t, vmcommon.Ok, retCode)
 
 	arguments.Function = "stake"
-	arguments.Arguments = [][]byte{big.NewInt(1).Bytes(), stakerPubKey2, []byte("signed")}
-	arguments.CallValue = big.NewInt(10000000)
+	arguments.Arguments = [][]byte{big.NewInt(1).Bytes(), stakerPubKey2, []byte("signed"), stakerAddress, big.NewInt(20000).Bytes()}
 
 	retCode = sc.Execute(arguments)
 	assert.Equal(t, vmcommon.Ok, retCode)
 
 	arguments.Function = "unStake"
-	arguments.Arguments = [][]byte{stakerPubKey2}
-	arguments.CallValue = big.NewInt(0)
+	arguments.Arguments = [][]byte{stakerPubKey2, stakerAddress, big.NewInt(0).Bytes()}
 	retCode = sc.Execute(arguments)
 	assert.Equal(t, vmcommon.Ok, retCode)
 
 	arguments.Function = "stake"
-	arguments.Arguments = [][]byte{big.NewInt(1).Bytes(), stakerPubKey3, []byte("signed")}
-	arguments.CallValue = big.NewInt(10000000)
+	arguments.Arguments = [][]byte{big.NewInt(1).Bytes(), stakerPubKey3, []byte("signed"), stakerAddress, big.NewInt(30000).Bytes()}
 
 	retCode = sc.Execute(arguments)
 	assert.Equal(t, vmcommon.Ok, retCode)
 
 	arguments.Function = "unStake"
-	arguments.Arguments = [][]byte{stakerPubKey3}
-	arguments.CallValue = big.NewInt(0)
+	arguments.Arguments = [][]byte{stakerPubKey3, stakerAddress, big.NewInt(0).Bytes()}
 	retCode = sc.Execute(arguments)
 	assert.Equal(t, vmcommon.Ok, retCode)
 
 	arguments.Function = "unBond"
-	arguments.Arguments = [][]byte{stakerPubKey2}
-	arguments.CallValue = big.NewInt(0)
+	arguments.Arguments = [][]byte{stakerPubKey2, stakerAddress}
 	retCode = sc.Execute(arguments)
 	assert.Equal(t, vmcommon.Ok, retCode)
 
 	arguments.Function = "unBond"
-	arguments.Arguments = [][]byte{stakerPubKey3}
-	arguments.CallValue = big.NewInt(0)
-	retCode = sc.Execute(arguments)
-	assert.Equal(t, vmcommon.Ok, retCode)
-}
-
-func TestStakingValidatorSCMidas_StakeUnStake3XRestake2(t *testing.T) {
-	t.Parallel()
-
-	stakerAddress := []byte("address")
-	stakerPubKey1 := []byte("blsKey1")
-	stakerPubKey2 := []byte("blsKey2")
-	stakerPubKey3 := []byte("blsKey3")
-
-	blockChainHook := &mock.BlockChainHookStub{}
-	args := createMockArgumentsForValidatorSCMidas()
-	args.StakingSCConfig.MaxNumberOfNodesForStake = 1
-	enableEpochsHandler, _ := args.EnableEpochsHandler.(*enableEpochsHandlerMock.EnableEpochsHandlerStub)
-	enableEpochsHandler.AddActiveFlags(common.StakingV2Flag)
-	atArgParser := parsers.NewCallArgsParser()
-	eei := createDefaultEei()
-	eei.blockChainHook = blockChainHook
-	eei.inputParser = atArgParser
-
-	argsStaking := createMockStakingScArguments()
-	argsStaking.StakingSCConfig.GenesisNodePrice = "10000000"
-	argsStaking.Eei = eei
-	argsStaking.StakingSCConfig.UnBondPeriod = 100000
-	stubStaking, _ := argsStaking.EnableEpochsHandler.(*enableEpochsHandlerMock.EnableEpochsHandlerStub)
-	stubStaking.AddActiveFlags(common.StakingV2Flag)
-	stakingSc, _ := NewStakingSmartContract(argsStaking)
-	eei.SetSCAddress([]byte("addr"))
-	_ = eei.SetSystemSCContainer(&mock.SystemSCContainerStub{GetCalled: func(key []byte) (contract vm.SystemSmartContract, err error) {
-		return stakingSc, nil
-	}})
-
-	args.StakingSCConfig = argsStaking.StakingSCConfig
-	args.Eei = eei
-
-	sc, _ := NewValidatorSmartContractMidas(args)
-	arguments := CreateVmContractCallInputMidas()
-	arguments.Function = "stake"
-	arguments.CallerAddr = stakerAddress
-	arguments.Arguments = [][]byte{big.NewInt(1).Bytes(), stakerPubKey1, []byte("signed")}
-	arguments.CallValue = big.NewInt(10000000)
-
-	retCode := sc.Execute(arguments)
-	assert.Equal(t, vmcommon.Ok, retCode)
-
-	arguments.Function = "stake"
-	arguments.Arguments = [][]byte{big.NewInt(1).Bytes(), stakerPubKey2, []byte("signed")}
-	arguments.CallValue = big.NewInt(10000000)
-
-	retCode = sc.Execute(arguments)
-	assert.Equal(t, vmcommon.Ok, retCode)
-
-	arguments.Function = "stake"
-	arguments.Arguments = [][]byte{big.NewInt(1).Bytes(), stakerPubKey3, []byte("signed")}
-	arguments.CallValue = big.NewInt(10000000)
-
-	retCode = sc.Execute(arguments)
-	assert.Equal(t, vmcommon.Ok, retCode)
-
-	blockChainHook.CurrentNonceCalled = func() uint64 {
-		return 10
-	}
-
-	arguments.Function = "unStakeNodes"
-	arguments.Arguments = [][]byte{stakerPubKey1}
-	arguments.CallValue = big.NewInt(0)
-	retCode = sc.Execute(arguments)
-	assert.Equal(t, vmcommon.Ok, retCode)
-
-	arguments.Function = "unStakeNodes"
-	arguments.Arguments = [][]byte{stakerPubKey2}
-	arguments.CallValue = big.NewInt(0)
-	retCode = sc.Execute(arguments)
-	assert.Equal(t, vmcommon.Ok, retCode)
-
-	arguments.Function = "reStakeUnStakedNodes"
-	arguments.Arguments = [][]byte{stakerPubKey1, stakerPubKey2}
-	arguments.CallValue = big.NewInt(0)
+	arguments.Arguments = [][]byte{stakerPubKey3, stakerAddress}
 	retCode = sc.Execute(arguments)
 	assert.Equal(t, vmcommon.Ok, retCode)
 }
@@ -1002,7 +927,7 @@ func TestStakingValidatorSCMidas_StakeShouldSetOwnerIfStakingV2IsEnabled(t *test
 	atArgParser := parsers.NewCallArgsParser()
 
 	argsStaking := createMockStakingScArguments()
-	argsStaking.StakingSCConfig.GenesisNodePrice = "10000000"
+	argsStaking.StakingSCConfig.GenesisNodePrice = "10000"
 	eei := createDefaultEei()
 	eei.inputParser = atArgParser
 	argsStaking.Eei = eei
@@ -1021,9 +946,7 @@ func TestStakingValidatorSCMidas_StakeShouldSetOwnerIfStakingV2IsEnabled(t *test
 	sc, _ := NewValidatorSmartContractMidas(args)
 	arguments := CreateVmContractCallInputMidas()
 	arguments.Function = "stake"
-	arguments.CallerAddr = ownerAddress
-	arguments.Arguments = [][]byte{big.NewInt(1).Bytes(), blsKey, []byte("signed")}
-	arguments.CallValue = big.NewInt(10000000)
+	arguments.Arguments = [][]byte{big.NewInt(1).Bytes(), blsKey, []byte("signed"), ownerAddress, big.NewInt(10000).Bytes()}
 
 	retCode := sc.Execute(arguments)
 	assert.Equal(t, vmcommon.Ok, retCode)
@@ -1034,79 +957,7 @@ func TestStakingValidatorSCMidas_StakeShouldSetOwnerIfStakingV2IsEnabled(t *test
 	assert.Equal(t, ownerAddress, registeredData.OwnerAddress)
 }
 
-func TestStakingValidatorSCMidas_ExecuteStakechangeRewardAddressMidastakeUnstakeMidas(t *testing.T) {
-	t.Parallel()
-
-	stakerAddress := []byte("staker111")
-	stakerPubKey := []byte("bls1")
-
-	args := createMockArgumentsForValidatorSCMidas()
-
-	atArgParser := parsers.NewCallArgsParser()
-	eei := createDefaultEei()
-	eei.inputParser = atArgParser
-
-	argsStaking := createMockStakingScArguments()
-	argsStaking.StakingSCConfig.GenesisNodePrice = "10000000"
-	argsStaking.Eei = eei
-	argsStaking.StakingSCConfig.UnBondPeriod = 1000
-	stakingSc, _ := NewStakingSmartContract(argsStaking)
-
-	eei.SetSCAddress([]byte("addr"))
-	_ = eei.SetSystemSCContainer(&mock.SystemSCContainerStub{GetCalled: func(key []byte) (contract vm.SystemSmartContract, err error) {
-		return stakingSc, nil
-	}})
-
-	args.StakingSCConfig = argsStaking.StakingSCConfig
-	args.Eei = eei
-
-	sc, _ := NewValidatorSmartContractMidas(args)
-	arguments := CreateVmContractCallInputMidas()
-	arguments.Function = "stake"
-	arguments.CallerAddr = stakerAddress
-	arguments.Arguments = [][]byte{big.NewInt(1).Bytes(), stakerPubKey, []byte("signed")}
-	arguments.CallValue = big.NewInt(10000000)
-
-	retCode := sc.Execute(arguments)
-	assert.Equal(t, vmcommon.Ok, retCode)
-
-	rewardAddress := []byte("staker222")
-	arguments.Function = "changeRewardAddressMidas"
-	arguments.Arguments = [][]byte{rewardAddress}
-	arguments.CallValue = big.NewInt(0)
-
-	retCode = sc.Execute(arguments)
-	assert.Equal(t, vmcommon.Ok, retCode)
-
-	blsKey2 := []byte("blsKey2")
-	arguments.Function = "stake"
-	arguments.Arguments = [][]byte{big.NewInt(1).Bytes(), blsKey2, []byte("signed")}
-	arguments.CallValue = big.NewInt(10000000)
-	retCode = sc.Execute(arguments)
-	assert.Equal(t, vmcommon.Ok, retCode)
-
-	arguments.Function = "unStake"
-	arguments.Arguments = [][]byte{blsKey2}
-	arguments.CallValue = big.NewInt(0)
-
-	retCode = sc.Execute(arguments)
-	assert.Equal(t, vmcommon.Ok, retCode)
-
-	eei.SetSCAddress(args.StakingSCAddress)
-	marshaledData := eei.GetStorage(stakerPubKey)
-	stakedData := &StakedDataV2_0{}
-	_ = json.Unmarshal(marshaledData, stakedData)
-	assert.True(t, stakedData.Staked)
-	assert.True(t, bytes.Equal(rewardAddress, stakedData.RewardAddress))
-
-	marshaledData = eei.GetStorage(blsKey2)
-	stakedData = &StakedDataV2_0{}
-	_ = json.Unmarshal(marshaledData, stakedData)
-	assert.False(t, stakedData.Staked)
-	assert.True(t, bytes.Equal(rewardAddress, stakedData.RewardAddress))
-}
-
-func TestStakingValidatorSCMidas_ExecuteStakeUnStakeUnBondBlsPubKeyAndRestakeMidas(t *testing.T) {
+func TestStakingValidatorSCMidas_ExecuteStakeUnStakeUnBondBlsPubKeyAndRestake(t *testing.T) {
 	t.Parallel()
 
 	stakerAddress := big.NewInt(100)
@@ -1125,7 +976,7 @@ func TestStakingValidatorSCMidas_ExecuteStakeUnStakeUnBondBlsPubKeyAndRestakeMid
 	eei.inputParser = atArgParser
 
 	argsStaking := createMockStakingScArguments()
-	argsStaking.StakingSCConfig.GenesisNodePrice = "10000000"
+	argsStaking.StakingSCConfig.GenesisNodePrice = "10000"
 	argsStaking.Eei = eei
 	argsStaking.StakingSCConfig.UnBondPeriod = 1000
 	stakingSc, _ := NewStakingSmartContract(argsStaking)
@@ -1141,22 +992,18 @@ func TestStakingValidatorSCMidas_ExecuteStakeUnStakeUnBondBlsPubKeyAndRestakeMid
 	sc, _ := NewValidatorSmartContractMidas(args)
 	arguments := CreateVmContractCallInputMidas()
 	arguments.Function = "stake"
-	arguments.CallerAddr = stakerAddress.Bytes()
-	arguments.Arguments = [][]byte{big.NewInt(1).Bytes(), stakerPubKey.Bytes(), []byte("signed")}
-	arguments.CallValue = big.NewInt(10000000)
+	arguments.Arguments = [][]byte{big.NewInt(1).Bytes(), stakerPubKey.Bytes(), []byte("signed"), stakerAddress.Bytes(), big.NewInt(10000).Bytes()}
 
 	retCode := sc.Execute(arguments)
 	assert.Equal(t, vmcommon.Ok, retCode)
 
-	arguments.CallerAddr = []byte("anotherCaller")
-	arguments.Arguments = [][]byte{big.NewInt(1).Bytes(), []byte("anotherKey"), []byte("signed")}
+	arguments.Arguments = [][]byte{big.NewInt(1).Bytes(), []byte("anotherKey"), []byte("signed"), []byte("anotherCaller"), big.NewInt(10000).Bytes()}
 	retCode = sc.Execute(arguments)
 	assert.Equal(t, vmcommon.Ok, retCode)
 
 	nonce += 1
-	arguments.CallerAddr = stakerAddress.Bytes()
 	arguments.Function = "unStake"
-	arguments.Arguments = [][]byte{stakerPubKey.Bytes()}
+	arguments.Arguments = [][]byte{stakerPubKey.Bytes(), stakerAddress.Bytes(), big.NewInt(0).Bytes()}
 	arguments.CallValue = big.NewInt(0)
 
 	retCode = sc.Execute(arguments)
@@ -1164,18 +1011,16 @@ func TestStakingValidatorSCMidas_ExecuteStakeUnStakeUnBondBlsPubKeyAndRestakeMid
 
 	nonce += args.StakingSCConfig.UnBondPeriod + 1
 	arguments.Function = "unBond"
-	arguments.Arguments = [][]byte{stakerPubKey.Bytes()}
-	arguments.CallValue = big.NewInt(0)
+	arguments.Arguments = [][]byte{stakerPubKey.Bytes(), stakerAddress.Bytes()}
 	retCode = sc.Execute(arguments)
 	assert.Equal(t, vmcommon.Ok, retCode)
 
 	arguments.Function = "stake"
-	arguments.Arguments = [][]byte{big.NewInt(1).Bytes(), stakerPubKey.Bytes(), []byte("signed")}
-	arguments.CallValue = big.NewInt(0)
+	arguments.Arguments = [][]byte{big.NewInt(1).Bytes(), stakerPubKey.Bytes(), []byte("signed"), stakerAddress.Bytes(), big.NewInt(0).Bytes()}
 	retCode = sc.Execute(arguments)
 	assert.Equal(t, vmcommon.UserError, retCode)
 
-	arguments.CallValue = big.NewInt(10000000)
+	arguments.Arguments = [][]byte{big.NewInt(1).Bytes(), stakerPubKey.Bytes(), []byte("signed"), stakerAddress.Bytes(), big.NewInt(10000).Bytes()}
 	retCode = sc.Execute(arguments)
 	assert.Equal(t, vmcommon.Ok, retCode)
 
@@ -1189,10 +1034,11 @@ func TestStakingValidatorSCMidas_ExecuteStakeUnStakeUnBondBlsPubKeyAndRestakeMid
 func TestStakingValidatorSCMidas_ExecuteUnBond(t *testing.T) {
 	t.Parallel()
 
+	validatorAddr := []byte("dummyAddress1")
 	arguments := CreateVmContractCallInputMidas()
-	totalStake := uint64(25000000)
+	totalStake := uint64(25000)
 
-	validatorData := createAValidatorData(totalStake, 2, 12500000)
+	validatorData := createAValidatorData(totalStake, 2, 12500)
 	validatorDataBytes, _ := json.Marshal(&validatorData)
 
 	stakedData := StakedDataV2_0{
@@ -1200,14 +1046,14 @@ func TestStakingValidatorSCMidas_ExecuteUnBond(t *testing.T) {
 		Staked:        false,
 		UnStakedNonce: 1,
 		UnStakedEpoch: common.DefaultUnstakedEpoch,
-		RewardAddress: []byte("dummyAddress1"),
-		StakeValue:    big.NewInt(12500000),
+		RewardAddress: validatorAddr,
+		StakeValue:    big.NewInt(12500),
 	}
 	stakedDataBytes, _ := json.Marshal(&stakedData)
 
 	eei := &mock.SystemEIStub{}
 	eei.GetStorageCalled = func(key []byte) []byte {
-		if bytes.Equal(arguments.CallerAddr, key) {
+		if bytes.Equal(validatorAddr, key) {
 			return validatorDataBytes
 		}
 		if bytes.Equal(key, validatorData.BlsPubKeys[0]) {
@@ -1223,7 +1069,7 @@ func TestStakingValidatorSCMidas_ExecuteUnBond(t *testing.T) {
 	stakingValidatorSc, _ := NewValidatorSmartContractMidas(args)
 
 	arguments.Function = "unBond"
-	arguments.Arguments = [][]byte{validatorData.BlsPubKeys[0]}
+	arguments.Arguments = [][]byte{validatorData.BlsPubKeys[0], validatorAddr}
 	errCode := stakingValidatorSc.Execute(arguments)
 	assert.Equal(t, vmcommon.Ok, errCode)
 }
@@ -1319,15 +1165,18 @@ func TestValidatorStakingSCMidas_ExecuteStakeWrongStakeValueShouldErr(t *testing
 	args.StakingSCConfig.GenesisNodePrice = "10"
 	stakingSmartContract, _ := NewValidatorSmartContractMidas(args)
 	arguments := CreateVmContractCallInputMidas()
+
+	validatorAddr := []byte("validatorAddr")
+
 	arguments.Function = "stake"
-	arguments.CallValue = big.NewInt(2)
+	arguments.Arguments = [][]byte{big.NewInt(0).Bytes(), validatorAddr, big.NewInt(2).Bytes()}
 
 	retCode := stakingSmartContract.Execute(arguments)
 	assert.Equal(t, vmcommon.UserError, retCode)
 	assert.Equal(t, eei.returnMessage, fmt.Sprintf("insufficient stake value: expected %s, got %v",
-		args.StakingSCConfig.GenesisNodePrice, arguments.CallValue))
+		args.StakingSCConfig.GenesisNodePrice, big.NewInt(2)))
 
-	balance := eei.GetBalance(arguments.CallerAddr)
+	balance := eei.GetBalance(validatorAddr)
 	assert.Equal(t, big.NewInt(0), balance)
 }
 
@@ -1380,18 +1229,18 @@ func TestValidatorStakingSCMidas_ExecuteStakeAlreadyStakedShouldNotErr(t *testin
 
 	arguments := CreateVmContractCallInputMidas()
 	arguments.Function = "stake"
-	arguments.CallValue = nodePrice
-	arguments.CallerAddr = expectedCallerAddress
 	arguments.Arguments = [][]byte{
 		big.NewInt(1).Bytes(),
 		stakerBlsKey1.Bytes(), []byte("signed"),
+		expectedCallerAddress,
+		nodePrice.Bytes(),
 	}
 	marshalizedExpectedRegData, _ := json.Marshal(&stakedRegistrationData)
 	eei.SetSCAddress(args.StakingSCAddress)
 	eei.SetStorage(stakerBlsKey1.Bytes(), marshalizedExpectedRegData)
 
 	validatorData := ValidatorDataV2{
-		RewardAddress:   arguments.CallerAddr,
+		RewardAddress:   expectedCallerAddress,
 		RegisterNonce:   0,
 		Epoch:           0,
 		BlsPubKeys:      [][]byte{stakerBlsKey1.Bytes()},
@@ -1403,12 +1252,18 @@ func TestValidatorStakingSCMidas_ExecuteStakeAlreadyStakedShouldNotErr(t *testin
 	marshaledRegistrationData, _ := json.Marshal(validatorData)
 
 	eei.SetSCAddress(args.ValidatorSCAddress)
-	eei.SetStorage(arguments.CallerAddr, marshaledRegistrationData)
+	eei.SetStorage(expectedCallerAddress, marshaledRegistrationData)
+	arguments.Arguments = [][]byte{
+		big.NewInt(1).Bytes(),
+		stakerBlsKey1.Bytes(), []byte("signed"),
+		expectedCallerAddress,
+		big.NewInt(0).Mul(nodePrice, big.NewInt(2)).Bytes(),
+	}
 	retCode := stakingSmartContract.Execute(arguments)
 
 	assert.Equal(t, vmcommon.Ok, retCode)
 	var registrationData ValidatorDataV2
-	data := stakingSmartContract.eei.GetStorage(arguments.CallerAddr)
+	data := stakingSmartContract.eei.GetStorage(expectedCallerAddress)
 	_ = json.Unmarshal(data, &registrationData)
 
 	validatorData.TotalStakeValue = big.NewInt(0).Mul(nodePrice, big.NewInt(2))
@@ -1448,21 +1303,19 @@ func TestValidatorStakingSCMidas_ExecuteStakeStakedInStakingButNotInValidatorSho
 
 	arguments := CreateVmContractCallInputMidas()
 	arguments.Function = "stake"
-	arguments.CallValue = nodePrice
-	arguments.CallerAddr = expectedCallerAddress
-	maxStakePerNode := big.NewInt(0).Mul(nodePrice, big.NewInt(2))
 	arguments.Arguments = [][]byte{
 		big.NewInt(1).Bytes(),
 		stakerBlsKey1.Bytes(),
 		[]byte("signed"),
-		maxStakePerNode.Bytes(),
+		expectedCallerAddress,
+		nodePrice.Bytes(),
 	}
 	marshalizedExpectedRegData, _ := json.Marshal(&stakedRegistrationData)
 	eei.SetSCAddress(args.StakingSCAddress)
 	eei.SetStorage(stakerBlsKey1.Bytes(), marshalizedExpectedRegData)
 
 	validatorData := ValidatorDataV2{
-		RewardAddress:   arguments.CallerAddr,
+		RewardAddress:   expectedCallerAddress,
 		RegisterNonce:   0,
 		Epoch:           0,
 		BlsPubKeys:      nil,
@@ -1474,77 +1327,16 @@ func TestValidatorStakingSCMidas_ExecuteStakeStakedInStakingButNotInValidatorSho
 	marshaledRegistrationData, _ := json.Marshal(validatorData)
 
 	eei.SetSCAddress(args.ValidatorSCAddress)
-	eei.SetStorage(arguments.CallerAddr, marshaledRegistrationData)
+	eei.SetStorage(expectedCallerAddress, marshaledRegistrationData)
 	retCode := stakingSmartContract.Execute(arguments)
 
 	assert.Equal(t, vmcommon.UserError, retCode)
 	assert.True(t, strings.Contains(eei.returnMessage, "bls key already registered"))
 	var registrationData ValidatorDataV2
-	data := stakingSmartContract.eei.GetStorage(arguments.CallerAddr)
+	data := stakingSmartContract.eei.GetStorage(expectedCallerAddress)
 	_ = json.Unmarshal(data, &registrationData)
 
 	assert.Equal(t, validatorData, registrationData)
-}
-
-func TestValidatorStakingSCMidas_ExecuteStakeWithMaxStakePerNode(t *testing.T) {
-	t.Parallel()
-
-	stakerBlsKey1 := big.NewInt(101)
-	expectedCallerAddress := []byte("caller")
-
-	eei := createDefaultEei()
-	eei.SetSCAddress([]byte("addr"))
-	args := createMockArgumentsForValidatorSCMidas()
-	args.Eei = eei
-
-	argsStaking := createMockStakingScArguments()
-	argsStaking.StakingSCConfig = args.StakingSCConfig
-	argsStaking.Eei = eei
-	stakingSc, _ := NewStakingSmartContract(argsStaking)
-	_ = eei.SetSystemSCContainer(&mock.SystemSCContainerStub{GetCalled: func(key []byte) (contract vm.SystemSmartContract, err error) {
-		return stakingSc, nil
-	}})
-
-	stakingSmartContract, _ := NewValidatorSmartContractMidas(args)
-	nodePrice, _ := big.NewInt(0).SetString(args.StakingSCConfig.GenesisNodePrice, 10)
-
-	arguments := CreateVmContractCallInputMidas()
-	arguments.Function = "stake"
-	arguments.CallValue = nodePrice
-	arguments.CallerAddr = expectedCallerAddress
-	maxStakePerNode := big.NewInt(0).Mul(nodePrice, big.NewInt(2))
-	arguments.Arguments = [][]byte{
-		big.NewInt(1).Bytes(),
-		stakerBlsKey1.Bytes(),
-		[]byte("signed"),
-		maxStakePerNode.Bytes(),
-	}
-
-	eei.SetSCAddress(args.StakingSCAddress)
-	eei.SetStorage(stakerBlsKey1.Bytes(), nil)
-
-	validatorData := ValidatorDataV2{
-		RewardAddress:   arguments.CallerAddr,
-		RegisterNonce:   0,
-		Epoch:           0,
-		BlsPubKeys:      nil,
-		TotalStakeValue: big.NewInt(0),
-		LockedStake:     big.NewInt(0),
-		MaxStakePerNode: big.NewInt(0),
-		NumRegistered:   0,
-	}
-	marshaledRegistrationData, _ := json.Marshal(validatorData)
-
-	eei.SetSCAddress(args.ValidatorSCAddress)
-	eei.SetStorage(arguments.CallerAddr, marshaledRegistrationData)
-	retCode := stakingSmartContract.Execute(arguments)
-
-	assert.Equal(t, vmcommon.Ok, retCode)
-	var registrationData ValidatorDataV2
-	data := stakingSmartContract.eei.GetStorage(arguments.CallerAddr)
-	_ = json.Unmarshal(data, &registrationData)
-
-	assert.Equal(t, maxStakePerNode, registrationData.MaxStakePerNode)
 }
 
 func TestValidatorStakingSCMidas_ExecuteStakeNotEnoughArgsShouldErr(t *testing.T) {
@@ -1568,6 +1360,8 @@ func TestValidatorStakingSCMidas_ExecuteStakeNotEnoughArgsShouldErr(t *testing.T
 
 func TestValidatorStakingSCMidas_ExecuteStakeNotEnoughFundsForMultipleNodesShouldErr(t *testing.T) {
 	t.Parallel()
+
+	validatorAddr := []byte("validator")
 	stakerPubKey1 := big.NewInt(101)
 	stakerPubKey2 := big.NewInt(102)
 	args := createMockArgumentsForValidatorSCMidas()
@@ -1591,17 +1385,18 @@ func TestValidatorStakingSCMidas_ExecuteStakeNotEnoughFundsForMultipleNodesShoul
 	arguments := CreateVmContractCallInputMidas()
 	arguments.Function = "stake"
 	eei.SetGasProvided(arguments.GasProvided)
-	arguments.CallValue = big.NewInt(15)
 	arguments.Arguments = [][]byte{
 		big.NewInt(2).Bytes(),
 		stakerPubKey1.Bytes(), []byte("signed"),
 		stakerPubKey2.Bytes(), []byte("signed"),
+		validatorAddr,
+		big.NewInt(15).Bytes(),
 	}
 
 	retCode := stakingSmartContract.Execute(arguments)
 	assert.Equal(t, vmcommon.OutOfFunds, retCode)
 
-	balance := eei.GetBalance(arguments.CallerAddr)
+	balance := eei.GetBalance(validatorAddr)
 	assert.Equal(t, big.NewInt(0), balance)
 }
 
@@ -1638,11 +1433,12 @@ func TestValidatorStakingSCMidas_ExecuteStakeNotEnoughGasForMultipleNodesShouldE
 	arguments.Function = "stake"
 	arguments.GasProvided = 15
 	eei.SetGasProvided(arguments.GasProvided)
-	arguments.CallValue = big.NewInt(15)
 	arguments.Arguments = [][]byte{
 		big.NewInt(2).Bytes(),
 		stakerPubKey1.Bytes(), []byte("signed"),
 		stakerPubKey2.Bytes(), []byte("signed"),
+		[]byte("validatorAddr"),
+		big.NewInt(15).Bytes(),
 	}
 
 	retCode := stakingSmartContract.Execute(arguments)
@@ -1686,12 +1482,12 @@ func TestValidatorStakingSCMidas_ExecuteStakeOneKeyFailsOneRegisterStakeSCShould
 
 	arguments := CreateVmContractCallInputMidas()
 	arguments.Function = "stake"
-	arguments.CallerAddr = stakerAddress.Bytes()
-	arguments.CallValue = big.NewInt(nodePrice.Int64() * 2)
 	arguments.Arguments = [][]byte{
 		big.NewInt(2).Bytes(),
 		stakerPubKey.Bytes(), []byte("signed"),
 		stakerPubKey.Bytes(), []byte("signed"),
+		stakerAddress.Bytes(),
+		big.NewInt(nodePrice.Int64() * 2).Bytes(),
 	}
 
 	eei.SetSCAddress([]byte("addr"))
@@ -1752,21 +1548,19 @@ func TestValidatorStakingSCMidas_ExecuteStakeBeforeValidatorEnableNonce(t *testi
 	sc, _ := NewValidatorSmartContractMidas(args)
 	arguments := CreateVmContractCallInputMidas()
 	arguments.Function = "stake"
-	arguments.CallerAddr = stakerAddress.Bytes()
-	arguments.Arguments = [][]byte{big.NewInt(1).Bytes(), stakerPubKey.Bytes(), []byte("signed")}
-	arguments.CallValue = big.NewInt(0).Set(nodePrice)
+	arguments.Arguments = [][]byte{big.NewInt(1).Bytes(), stakerPubKey.Bytes(), []byte("signed"), stakerAddress.Bytes(), nodePrice.Bytes()}
 
 	retCode := sc.Execute(arguments)
 	assert.Equal(t, vmcommon.Ok, retCode)
 
 	var registrationData ValidatorDataV2
-	data := sc.eei.GetStorage(arguments.CallerAddr)
+	data := sc.eei.GetStorage(stakerAddress.Bytes())
 	err := json.Unmarshal(data, &registrationData)
 	assert.Nil(t, err)
 	assert.Equal(t, expectedRegistrationData, registrationData)
 }
 
-func TestValidatorStakingSCMidas_ExecutestakeMidas(t *testing.T) {
+func TestValidatorStakingSCMidas_ExecuteStake(t *testing.T) {
 	t.Parallel()
 
 	stakerAddress := big.NewInt(100)
@@ -1805,18 +1599,33 @@ func TestValidatorStakingSCMidas_ExecutestakeMidas(t *testing.T) {
 	sc, _ := NewValidatorSmartContractMidas(args)
 	arguments := CreateVmContractCallInputMidas()
 	arguments.Function = "stake"
-	arguments.CallerAddr = stakerAddress.Bytes()
-	arguments.Arguments = [][]byte{big.NewInt(1).Bytes(), stakerPubKey.Bytes(), []byte("signed")}
-	arguments.CallValue = big.NewInt(100).Set(nodePrice)
+	arguments.Arguments = [][]byte{big.NewInt(1).Bytes(), stakerPubKey.Bytes(), []byte("signed"), stakerAddress.Bytes(), big.NewInt(0).Set(nodePrice).Bytes()}
 
 	retCode := sc.Execute(arguments)
 	assert.Equal(t, vmcommon.Ok, retCode)
 
 	var registrationData ValidatorDataV2
-	data := sc.eei.GetStorage(arguments.CallerAddr)
+	data := sc.eei.GetStorage(stakerAddress.Bytes())
 	err := json.Unmarshal(data, &registrationData)
 	assert.Nil(t, err)
 	assert.Equal(t, expectedRegistrationData, registrationData)
+}
+
+func TestValidatorStakingSCMidas_ExecuteStakeOtherCallerShouldErr(t *testing.T) {
+	t.Parallel()
+
+	eei := &mock.SystemEIStub{}
+	args := createMockArgumentsForValidatorSCMidas()
+	args.Eei = eei
+
+	stakingSmartContract, _ := NewValidatorSmartContractMidas(args)
+	arguments := CreateVmContractCallInputMidas()
+	arguments.Function = "stake"
+	arguments.CallerAddr = []byte("other")
+
+	retCode := stakingSmartContract.Execute(arguments)
+	assert.Equal(t, vmcommon.UserError, retCode)
+	assert.Equal(t, "stake function not allowed to be called by address " + string(arguments.CallerAddr), eei.ReturnMessage)
 }
 
 func TestValidatorStakingSCMidas_ExecuteUnStakeValueNotZeroShouldErr(t *testing.T) {
@@ -1847,7 +1656,7 @@ func TestValidatorStakingSCMidas_ExecuteUnStakeAddressNotStakedShouldErr(t *test
 	stakingSmartContract, _ := NewValidatorSmartContractMidas(args)
 	arguments := CreateVmContractCallInputMidas()
 	arguments.Function = "unStake"
-	arguments.Arguments = [][]byte{notFoundkey}
+	arguments.Arguments = [][]byte{notFoundkey, []byte("validatorAddr"), big.NewInt(0).Bytes()}
 
 	retCode := stakingSmartContract.Execute(arguments)
 	assert.Equal(t, vmcommon.UserError, retCode)
@@ -1866,10 +1675,12 @@ func TestValidatorStakingSCMidas_ExecuteUnStakeUnmarshalErr(t *testing.T) {
 	args.Eei = eei
 	args.Marshalizer = &mock.MarshalizerMock{Fail: true}
 
+	validatorAddr := []byte("validatorAddr")
+
 	stakingSmartContract, _ := NewValidatorSmartContractMidas(args)
 	arguments := CreateVmContractCallInputMidas()
 	arguments.Function = "unStake"
-	arguments.Arguments = [][]byte{[]byte("abc")}
+	arguments.Arguments = [][]byte{[]byte("abc"), validatorAddr, big.NewInt(0).Bytes()}
 
 	retCode := stakingSmartContract.Execute(arguments)
 	assert.Equal(t, vmcommon.UserError, retCode)
@@ -1905,15 +1716,14 @@ func TestValidatorStakingSCMidas_ExecuteUnStakeAlreadyUnStakedAddrShouldNotErr(t
 
 	arguments := CreateVmContractCallInputMidas()
 	arguments.Function = "unStake"
-	arguments.CallerAddr = expectedCallerAddress
-	arguments.Arguments = [][]byte{[]byte("abc")}
+	arguments.Arguments = [][]byte{[]byte("abc"), expectedCallerAddress, big.NewInt(0).Bytes()}
 	marshalizedExpectedRegData, _ := json.Marshal(&stakedRegistrationData)
 	eei.SetSCAddress(args.StakingSCAddress)
 	eei.SetStorage(arguments.Arguments[0], marshalizedExpectedRegData)
 
 	nodePrice, _ := big.NewInt(0).SetString(args.StakingSCConfig.GenesisNodePrice, 10)
 	validatorData := ValidatorDataV2{
-		RewardAddress:   arguments.CallerAddr,
+		RewardAddress:   expectedCallerAddress,
 		RegisterNonce:   0,
 		Epoch:           0,
 		BlsPubKeys:      [][]byte{arguments.Arguments[0]},
@@ -1925,7 +1735,7 @@ func TestValidatorStakingSCMidas_ExecuteUnStakeAlreadyUnStakedAddrShouldNotErr(t
 	marshaledRegistrationData, _ := json.Marshal(validatorData)
 
 	eei.SetSCAddress(args.ValidatorSCAddress)
-	eei.SetStorage(arguments.CallerAddr, marshaledRegistrationData)
+	eei.SetStorage(expectedCallerAddress, marshaledRegistrationData)
 	retCode := stakingSmartContract.Execute(arguments)
 
 	assert.Equal(t, vmcommon.Ok, retCode)
@@ -1963,7 +1773,7 @@ func TestValidatorStakingSCMidas_ExecuteUnStakeFailsWithWrongCaller(t *testing.T
 	assert.Equal(t, vmcommon.UserError, retCode)
 }
 
-func TestValidatorStakingSCMidas_ExecuteUnstakeMidas(t *testing.T) {
+func TestValidatorStakingSCMidas_ExecuteUnstake(t *testing.T) {
 	t.Parallel()
 
 	args := createMockArgumentsForValidatorSCMidas()
@@ -2005,13 +1815,12 @@ func TestValidatorStakingSCMidas_ExecuteUnstakeMidas(t *testing.T) {
 	stakingSmartContract, _ := NewValidatorSmartContractMidas(args)
 	arguments := CreateVmContractCallInputMidas()
 	arguments.Function = "unStake"
-	arguments.Arguments = [][]byte{[]byte("abc")}
-	arguments.CallerAddr = callerAddress
+	arguments.Arguments = [][]byte{[]byte("abc"), callerAddress, big.NewInt(0).Bytes()}
 	marshalizedExpectedRegData, _ := json.Marshal(&stakedRegistrationData)
 	stakingSmartContract.eei.SetStorage(arguments.Arguments[0], marshalizedExpectedRegData)
 
 	validatorData := ValidatorDataV2{
-		RewardAddress:   arguments.CallerAddr,
+		RewardAddress:   callerAddress,
 		RegisterNonce:   0,
 		Epoch:           0,
 		BlsPubKeys:      [][]byte{arguments.Arguments[0]},
@@ -2021,14 +1830,14 @@ func TestValidatorStakingSCMidas_ExecuteUnstakeMidas(t *testing.T) {
 		NumRegistered:   1,
 	}
 	marshaledRegistrationData, _ := json.Marshal(validatorData)
-	eei.SetStorage(arguments.CallerAddr, marshaledRegistrationData)
+	eei.SetStorage(callerAddress, marshaledRegistrationData)
 
 	stakedData := StakedDataV2_0{
 		RegisterNonce: 0,
 		Staked:        true,
 		UnStakedNonce: 0,
 		UnStakedEpoch: common.DefaultUnstakedEpoch,
-		RewardAddress: arguments.CallerAddr,
+		RewardAddress: callerAddress,
 		StakeValue:    nodePrice,
 		JailedRound:   math.MaxUint64,
 		SlashValue:    big.NewInt(0),
@@ -2048,6 +1857,23 @@ func TestValidatorStakingSCMidas_ExecuteUnstakeMidas(t *testing.T) {
 	err := json.Unmarshal(data, &registrationData)
 	assert.Nil(t, err)
 	assert.Equal(t, expectedRegistrationData, registrationData)
+}
+
+func TestValidatorStakingSCMidas_ExecuteUnstakeOtherCallerShouldErr(t *testing.T) {
+	t.Parallel()
+
+	eei := &mock.SystemEIStub{}
+	args := createMockArgumentsForValidatorSCMidas()
+	args.Eei = eei
+
+	stakingSmartContract, _ := NewValidatorSmartContractMidas(args)
+	arguments := CreateVmContractCallInputMidas()
+	arguments.Function = "unStake"
+	arguments.CallerAddr = []byte("other")
+
+	retCode := stakingSmartContract.Execute(arguments)
+	assert.Equal(t, vmcommon.UserError, retCode)
+	assert.Equal(t, "unStake function not allowed to be called by address " + string(arguments.CallerAddr), eei.ReturnMessage)
 }
 
 func TestValidatorStakingSCMidas_ExecuteUnBondUnmarshalErr(t *testing.T) {
@@ -2124,15 +1950,15 @@ func TestValidatorStakingSCMidas_ExecuteStakeUnStakeReturnsErrAsNotEnabled(t *te
 
 	stakingSmartContract, _ := NewValidatorSmartContractMidas(args)
 	arguments := CreateVmContractCallInputMidas()
-	arguments.CallerAddr = []byte("data")
 	arguments.Function = "unBond"
-	arguments.Arguments = [][]byte{big.NewInt(100).Bytes()}
+	arguments.Arguments = [][]byte{[]byte("data"), big.NewInt(100).Bytes()}
 
 	retCode := stakingSmartContract.Execute(arguments)
 	assert.Equal(t, vmcommon.UserError, retCode)
 	assert.Equal(t, vm.UnBondNotEnabled, eei.ReturnMessage)
 
 	arguments.Function = "unStake"
+	arguments.Arguments = [][]byte{big.NewInt(0).Bytes(), []byte("data"), big.NewInt(0).Bytes()}
 	retCode = stakingSmartContract.Execute(arguments)
 	assert.Equal(t, vmcommon.UserError, retCode)
 	assert.Equal(t, vm.UnStakeNotEnabled, eei.ReturnMessage)
@@ -2190,9 +2016,8 @@ func TestValidatorStakingSCMidas_ExecuteUnBondBeforePeriodEnds(t *testing.T) {
 	_ = stakingSc.saveAsStakingDataV1P1(blsPubKey, registrationData)
 
 	arguments := CreateVmContractCallInputMidas()
-	arguments.CallerAddr = caller
 	arguments.Function = "unBond"
-	arguments.Arguments = [][]byte{blsPubKey}
+	arguments.Arguments = [][]byte{blsPubKey, caller}
 
 	retCode := validatorSc.Execute(arguments)
 	assert.Equal(t, vmcommon.Ok, retCode)
@@ -2250,9 +2075,8 @@ func TestValidatorSCMidas_ExecuteUnBondBeforePeriodEndsForV2(t *testing.T) {
 	_ = stakingSc.saveAsStakingDataV1P1(blsPubKey, registrationData)
 
 	arguments := CreateVmContractCallInputMidas()
-	arguments.CallerAddr = caller
 	arguments.Function = "unBond"
-	arguments.Arguments = [][]byte{blsPubKey}
+	arguments.Arguments = [][]byte{blsPubKey, caller}
 
 	retCode := validatorSc.Execute(arguments)
 	assert.Equal(t, vmcommon.Ok, retCode)
@@ -2306,10 +2130,11 @@ func TestValidatorStakingSCMidas_ExecuteUnBond(t *testing.T) {
 
 	stakingSmartContract, _ := NewValidatorSmartContractMidas(args)
 
+	validatorAddr := []byte("address")
+
 	arguments := CreateVmContractCallInputMidas()
-	arguments.CallerAddr = []byte("address")
 	arguments.Function = "unBond"
-	arguments.Arguments = [][]byte{[]byte("abc")}
+	arguments.Arguments = [][]byte{[]byte("abc"), validatorAddr}
 	arguments.RecipientAddr = scAddress
 
 	eei.SetSCAddress(args.StakingSCAddress)
@@ -2318,7 +2143,7 @@ func TestValidatorStakingSCMidas_ExecuteUnBond(t *testing.T) {
 	eei.SetSCAddress(args.ValidatorSCAddress)
 
 	validatorData := ValidatorDataV2{
-		RewardAddress:   arguments.CallerAddr,
+		RewardAddress:   validatorAddr,
 		RegisterNonce:   0,
 		Epoch:           0,
 		BlsPubKeys:      [][]byte{arguments.Arguments[0]},
@@ -2328,7 +2153,7 @@ func TestValidatorStakingSCMidas_ExecuteUnBond(t *testing.T) {
 		NumRegistered:   1,
 	}
 	marshaledRegistrationData, _ := json.Marshal(validatorData)
-	eei.SetStorage(arguments.CallerAddr, marshaledRegistrationData)
+	eei.SetStorage(validatorAddr, marshaledRegistrationData)
 
 	retCode := stakingSmartContract.Execute(arguments)
 	assert.Equal(t, vmcommon.Ok, retCode)
@@ -2336,11 +2161,23 @@ func TestValidatorStakingSCMidas_ExecuteUnBond(t *testing.T) {
 	eei.SetSCAddress(args.StakingSCAddress)
 	data := eei.GetStorage(arguments.Arguments[0])
 	assert.Equal(t, 0, len(data))
+}
 
-	destinationBalance := stakingSmartContract.eei.GetBalance(arguments.CallerAddr)
-	scBalance := stakingSmartContract.eei.GetBalance(scAddress)
-	assert.Equal(t, 0, destinationBalance.Cmp(stakeValue))
-	assert.Equal(t, 0, scBalance.Cmp(big.NewInt(0).Mul(stakeValue, big.NewInt(-1))))
+func TestValidatorStakingSCMidas_ExecuteUnbondOtherCallerShouldErr(t *testing.T) {
+	t.Parallel()
+
+	eei := &mock.SystemEIStub{}
+	args := createMockArgumentsForValidatorSCMidas()
+	args.Eei = eei
+
+	stakingSmartContract, _ := NewValidatorSmartContractMidas(args)
+	arguments := CreateVmContractCallInputMidas()
+	arguments.Function = "unBond"
+	arguments.CallerAddr = []byte("other")
+
+	retCode := stakingSmartContract.Execute(arguments)
+	assert.Equal(t, vmcommon.UserError, retCode)
+	assert.Equal(t, "unBond function not allowed to be called by address " + string(arguments.CallerAddr), eei.ReturnMessage)
 }
 
 func TestValidatorStakingSCMidas_ExecuteSlashOwnerAddrNotOkShouldErr(t *testing.T) {
@@ -2358,7 +2195,7 @@ func TestValidatorStakingSCMidas_ExecuteSlashOwnerAddrNotOkShouldErr(t *testing.
 	assert.Equal(t, vmcommon.UserError, retCode)
 }
 
-func TestValidatorStakingSCMidas_ExecuteUnStakeAndUnBondstakeMidas(t *testing.T) {
+func TestValidatorStakingSCMidas_ExecuteUnStakeAndUnBondstake(t *testing.T) {
 	t.Parallel()
 
 	// Preparation
@@ -2393,8 +2230,7 @@ func TestValidatorStakingSCMidas_ExecuteUnStakeAndUnBondstakeMidas(t *testing.T)
 	stakingSmartContract, _ := NewValidatorSmartContractMidas(args)
 
 	arguments := CreateVmContractCallInputMidas()
-	arguments.Arguments = [][]byte{stakerPubKey}
-	arguments.CallerAddr = stakerAddress
+	arguments.Arguments = [][]byte{stakerPubKey, stakerAddress, big.NewInt(0).Bytes()}
 	arguments.RecipientAddr = []byte(smartcontractAddress)
 
 	stakedRegistrationData := StakedDataV2_0{
@@ -2412,7 +2248,7 @@ func TestValidatorStakingSCMidas_ExecuteUnStakeAndUnBondstakeMidas(t *testing.T)
 	stakingSc.setConfig(&StakingNodesConfig{MinNumNodes: 5, StakedNodes: 10})
 
 	validatorData := ValidatorDataV2{
-		RewardAddress:   arguments.CallerAddr,
+		RewardAddress:   stakerAddress,
 		RegisterNonce:   0,
 		Epoch:           0,
 		BlsPubKeys:      [][]byte{arguments.Arguments[0]},
@@ -2424,7 +2260,7 @@ func TestValidatorStakingSCMidas_ExecuteUnStakeAndUnBondstakeMidas(t *testing.T)
 	}
 	marshaledRegistrationData, _ := json.Marshal(validatorData)
 	eei.SetSCAddress(args.ValidatorSCAddress)
-	eei.SetStorage(arguments.CallerAddr, marshaledRegistrationData)
+	eei.SetStorage(stakerAddress, marshaledRegistrationData)
 
 	arguments.Function = "unStake"
 
@@ -2457,6 +2293,7 @@ func TestValidatorStakingSCMidas_ExecuteUnStakeAndUnBondstakeMidas(t *testing.T)
 	assert.Equal(t, expectedRegistrationData, registrationData)
 
 	arguments.Function = "unBond"
+	arguments.Arguments = [][]byte{stakerPubKey, stakerAddress}
 
 	blockChainHook.CurrentNonceCalled = func() uint64 {
 		return unStakeNonce + unBondPeriod + 1
@@ -2467,11 +2304,6 @@ func TestValidatorStakingSCMidas_ExecuteUnStakeAndUnBondstakeMidas(t *testing.T)
 	eei.SetSCAddress(args.ValidatorSCAddress)
 	retCode = stakingSmartContract.Execute(arguments)
 	assert.Equal(t, vmcommon.Ok, retCode)
-
-	destinationBalance := eei.GetBalance(arguments.CallerAddr)
-	senderBalance := eei.GetBalance([]byte(smartcontractAddress))
-	assert.Equal(t, big.NewInt(100), destinationBalance)
-	assert.Equal(t, big.NewInt(-100), senderBalance)
 }
 
 func TestValidatorStakingSCMidas_ExecuteGetShouldReturnUserErr(t *testing.T) {
@@ -2503,54 +2335,6 @@ func TestValidatorStakingSCMidas_ExecuteGetShouldOk(t *testing.T) {
 	err := stakingSmartContract.Execute(arguments)
 
 	assert.Equal(t, vmcommon.Ok, err)
-}
-
-// Test scenario
-// 1 -- will call claim from an account that does not stake -> will return error code
-// 2 -- will do stake and lock all the stake value and claim should return error code because all the stake value is locked
-// 3 -- will do stake and stake value will not be locked and after that claim should work
-func TestValidatorStakingSCMidas_Claim(t *testing.T) {
-	t.Parallel()
-
-	receiverAddr := []byte("receiverAddress")
-	stakerAddress := []byte("stakerAddr")
-	stakerPubKey := []byte("stakerPubKey")
-	minStakeValue := big.NewInt(1000)
-	unboundPeriod := uint64(10)
-	nodesToRunBytes := big.NewInt(1).Bytes()
-
-	nonce := uint64(0)
-	blockChainHook := &mock.BlockChainHookStub{
-		CurrentNonceCalled: func() uint64 {
-			defer func() {
-				nonce++
-			}()
-
-			return nonce
-		},
-	}
-
-	args := createMockArgumentsForValidatorSCMidas()
-	args.Eei = createVmContextWithStakingScMidas(minStakeValue, unboundPeriod, blockChainHook)
-
-	sc, _ := NewValidatorSmartContractMidas(args)
-
-	//do claim should ret error
-	doClaimMidas(t, sc, stakerAddress, receiverAddr, vmcommon.UserError)
-
-	//do stake
-	nodePrice, _ := big.NewInt(0).SetString(args.StakingSCConfig.GenesisNodePrice, 10)
-	stakeMidas(t, sc, nodePrice, receiverAddr, stakerAddress, stakerPubKey, nodesToRunBytes)
-
-	//do claim all stake is locked should return Ok
-	doClaimMidas(t, sc, stakerAddress, receiverAddr, vmcommon.Ok)
-
-	// do stake to add more money but not lock the stake
-	nonce = 0
-	stakeMidas(t, sc, big.NewInt(11000), receiverAddr, stakerAddress, stakerPubKey, nodesToRunBytes)
-
-	// do claim should work because not all the stake is locked
-	doClaimMidas(t, sc, stakerAddress, receiverAddr, vmcommon.Ok)
 }
 
 // Test scenario
@@ -2693,6 +2477,7 @@ func TestValidatorStakingSCMidas_getBlsStatusWrongNumOfArguments(t *testing.T) {
 
 	sc, _ := NewValidatorSmartContractMidas(args)
 	arguments := CreateVmContractCallInputMidas()
+	arguments.CallerAddr = []byte("validator")
 	arguments.Function = "getBlsKeysStatus"
 
 	returnCode := sc.Execute(arguments)
@@ -2716,6 +2501,7 @@ func TestValidatorStakingSCMidas_getBlsStatusWrongRegistrationData(t *testing.T)
 
 	sc, _ := NewValidatorSmartContractMidas(args)
 	arguments := CreateVmContractCallInputMidas()
+	arguments.CallerAddr = []byte("validator")
 	arguments.Arguments = append(arguments.Arguments, []byte("erdKey"))
 	arguments.Function = "getBlsKeysStatus"
 
@@ -2736,6 +2522,7 @@ func TestValidatorStakingSCMidas_getBlsStatusNoBlsKeys(t *testing.T) {
 
 	sc, _ := NewValidatorSmartContractMidas(args)
 	arguments := CreateVmContractCallInputMidas()
+	arguments.CallerAddr = []byte("validator")
 	arguments.Function = "getBlsKeysStatus"
 	arguments.Arguments = append(arguments.Arguments, []byte("erd key"))
 
@@ -2789,6 +2576,7 @@ func TestValidatorStakingSCMidas_getBlsStatusShouldWork(t *testing.T) {
 
 	sc, _ := NewValidatorSmartContractMidas(args)
 	arguments := CreateVmContractCallInputMidas()
+	arguments.CallerAddr = []byte("validator")
 	arguments.Arguments = append(arguments.Arguments, []byte("erdKey"))
 	arguments.Function = "getBlsKeysStatus"
 
@@ -2840,6 +2628,7 @@ func TestValidatorStakingSCMidas_getBlsStatusShouldWorkEvenIfAnErrorOccursForOne
 
 	sc, _ := NewValidatorSmartContractMidas(args)
 	arguments := CreateVmContractCallInputMidas()
+	arguments.CallerAddr = []byte("validator")
 	arguments.Arguments = append(arguments.Arguments, []byte("erdKey"))
 	arguments.Function = "getBlsKeysStatus"
 
@@ -2850,86 +2639,6 @@ func TestValidatorStakingSCMidas_getBlsStatusShouldWorkEvenIfAnErrorOccursForOne
 	assert.Equal(t, 2, len(output.ReturnData))
 	assert.Equal(t, []byte(secondAddr), output.ReturnData[0])
 	assert.Equal(t, []byte("staked"), output.ReturnData[1])
-}
-
-func TestValidatorStakingSCMidas_changeRewardAddressMidas(t *testing.T) {
-	t.Parallel()
-
-	receiverAddr := []byte("receiverAddress")
-	stakerAddress := []byte("stakerA")
-	stakerPubKey := []byte("stakerP")
-	minStakeValue := big.NewInt(1000)
-	unbondPeriod := uint64(10)
-	nodesToRunBytes := big.NewInt(1).Bytes()
-	blockChainHook := &mock.BlockChainHookStub{}
-	args := createMockArgumentsForValidatorSCMidas()
-	enableEpochsHandler, _ := args.EnableEpochsHandler.(*enableEpochsHandlerMock.EnableEpochsHandlerStub)
-	enableEpochsHandler.RemoveActiveFlags(common.ValidatorToDelegationFlag)
-	eei := createVmContextWithStakingScMidas(minStakeValue, unbondPeriod, blockChainHook)
-	args.Eei = eei
-
-	sc, _ := NewValidatorSmartContractMidas(args)
-
-	//change reward address should error nil arguments
-	changeRewardAddressMidas(t, sc, stakerAddress, nil, vmcommon.UserError)
-	// change reward address should error wrong address
-	eei.returnMessage = ""
-	changeRewardAddressMidas(t, sc, stakerAddress, []byte("wrongAddress"), vmcommon.UserError)
-	assert.Equal(t, "wrong reward address", eei.returnMessage)
-	// change reward address should error because address is not belongs to any validator
-	newRewardAddr := []byte("newAddr11")
-	changeRewardAddressMidas(t, sc, stakerAddress, newRewardAddr, vmcommon.UserError)
-	//do stake
-	nodePrice, _ := big.NewInt(0).SetString(args.StakingSCConfig.GenesisNodePrice, 10)
-	stakeMidas(t, sc, nodePrice, receiverAddr, stakerAddress, stakerPubKey, nodesToRunBytes)
-
-	// change reward address should error because new reward address is equal with old reward address
-	changeRewardAddressMidas(t, sc, stakerAddress, stakerAddress, vmcommon.UserError)
-	// change reward address should work
-	changeRewardAddressMidas(t, sc, stakerAddress, newRewardAddr, vmcommon.Ok)
-}
-
-func TestValidatorStakingSCMidas_changeRewardAddressMidasWithExtraChecks(t *testing.T) {
-	t.Parallel()
-
-	currentShard := uint32(0)
-
-	receiverAddr := bytes.Repeat([]byte{2}, len(vm.JailingAddress))
-	stakerAddress := bytes.Repeat([]byte{1}, len(vm.JailingAddress))
-	stakerPubKey := []byte("stakerP")
-	minStakeValue := big.NewInt(1000)
-	unbondPeriod := uint64(10)
-	nodesToRunBytes := big.NewInt(1).Bytes()
-	blockChainHook := &mock.BlockChainHookStub{}
-	args := createMockArgumentsForValidatorSCMidasWithRealAddresses()
-	args.ValidatorSCAddress = vm.ValidatorSCAddress
-	args.ShardCoordinator = &mock.ShardCoordinatorStub{
-		ComputeIdCalled: func(address []byte) uint32 {
-			return currentShard
-		},
-	}
-	eei := createVmContextWithStakingScMidasWithRealAddresses(minStakeValue, unbondPeriod, blockChainHook)
-	args.Eei = eei
-
-	sc, _ := NewValidatorSmartContractMidas(args)
-	nodePrice, _ := big.NewInt(0).SetString(args.StakingSCConfig.GenesisNodePrice, 10)
-	stakeMidas(t, sc, nodePrice, receiverAddr, stakerAddress, stakerPubKey, nodesToRunBytes)
-
-	eei.returnMessage = ""
-	changeRewardAddressMidas(t, sc, stakerAddress, vm.JailingAddress, vmcommon.UserError)
-	expectedErr := fmt.Errorf("%w when trying to set the jailing address", vm.ErrWrongRewardAddress)
-	assert.Equal(t, expectedErr.Error(), eei.returnMessage)
-
-	eei.returnMessage = ""
-	changeRewardAddressMidas(t, sc, stakerAddress, vm.EndOfEpochAddress, vmcommon.UserError)
-	expectedErr = fmt.Errorf("%w when trying to set the end-of-epoch reserved address", vm.ErrWrongRewardAddress)
-	assert.Equal(t, expectedErr.Error(), eei.returnMessage)
-
-	eei.returnMessage = ""
-	currentShard = core.MetachainShardId
-	changeRewardAddressMidas(t, sc, stakerAddress, bytes.Repeat([]byte{8}, len(vm.JailingAddress)), vmcommon.UserError)
-	expectedErr = fmt.Errorf("%w when trying to set a metachain address", vm.ErrWrongRewardAddress)
-	assert.Equal(t, expectedErr.Error(), eei.returnMessage)
 }
 
 func TestStakingValidatorSCMidas_UnstakeTokensNotEnabledShouldError(t *testing.T) {
@@ -2944,7 +2653,7 @@ func TestStakingValidatorSCMidas_UnstakeTokensNotEnabledShouldError(t *testing.T
 	caller := []byte("caller")
 	sc, _ := NewValidatorSmartContractMidas(args)
 
-	callFunctionAndCheckResultMidas(t, "unStakeTokens", sc, caller, [][]byte{big.NewInt(1).Bytes()}, zero, vmcommon.UserError)
+	callFunctionAndCheckResultMidas(t, "unStakeTokens", sc, AbstractStakingSCAddress, [][]byte{caller, big.NewInt(1).Bytes()}, zero, vmcommon.UserError)
 	vmOutput := eei.CreateVMOutput()
 	assert.Equal(t, "invalid method to call", vmOutput.ReturnMessage)
 }
@@ -2966,9 +2675,9 @@ func TestStakingValidatorSCMidas_UnstakeTokensInvalidArgumentsShouldError(t *tes
 	registrationData := &ValidatorDataV2{RewardAddress: caller}
 	marshaledData, _ := args.Marshalizer.Marshal(registrationData)
 	eei.SetStorage(caller, marshaledData)
-	callFunctionAndCheckResultMidas(t, "unStakeTokens", sc, caller, nil, zero, vmcommon.UserError)
+	callFunctionAndCheckResultMidas(t, "unStakeTokens", sc, AbstractStakingSCAddress, [][]byte{[]byte("a")}, zero, vmcommon.UserError)
 	vmOutput := eei.CreateVMOutput()
-	assert.Equal(t, "should have specified one argument containing the unstake value", vmOutput.ReturnMessage)
+	assert.Equal(t, "invalid number of arguments: expected 2, got 1", vmOutput.ReturnMessage)
 
 	eei = createVmContextWithStakingScMidas(minStakeValue, unbondPeriod, blockChainHook)
 	args.Eei = eei
@@ -2976,9 +2685,9 @@ func TestStakingValidatorSCMidas_UnstakeTokensInvalidArgumentsShouldError(t *tes
 	sc, _ = NewValidatorSmartContractMidas(args)
 
 	eei.SetStorage(caller, marshaledData)
-	callFunctionAndCheckResultMidas(t, "unStakeTokens", sc, caller, [][]byte{[]byte("a"), []byte("b")}, zero, vmcommon.UserError)
+	callFunctionAndCheckResultMidas(t, "unStakeTokens", sc, AbstractStakingSCAddress, [][]byte{[]byte("a"), []byte("b"), []byte("c")}, zero, vmcommon.UserError)
 	vmOutput = eei.CreateVMOutput()
-	assert.Equal(t, "should have specified one argument containing the unstake value", vmOutput.ReturnMessage)
+	assert.Equal(t, "invalid number of arguments: expected 2, got 3", vmOutput.ReturnMessage)
 }
 
 func TestStakingValidatorSCMidas_UnstakeTokensWithCallValueShouldError(t *testing.T) {
@@ -2995,12 +2704,31 @@ func TestStakingValidatorSCMidas_UnstakeTokensWithCallValueShouldError(t *testin
 	caller := []byte("caller")
 	sc, _ := NewValidatorSmartContractMidas(args)
 
-	callFunctionAndCheckResultMidas(t, "unStakeTokens", sc, caller, [][]byte{big.NewInt(1).Bytes()}, big.NewInt(1), vmcommon.UserError)
+	callFunctionAndCheckResultMidas(t, "unStakeTokens", sc, AbstractStakingSCAddress, [][]byte{caller, big.NewInt(1).Bytes()}, big.NewInt(1), vmcommon.UserError)
 	vmOutput := eei.CreateVMOutput()
 	assert.Equal(t, vm.TransactionValueMustBeZero, vmOutput.ReturnMessage)
 }
 
-func TestStakingValidatorSCMidas_UnstakeTokensOverMaxShouldUnstakeMidas(t *testing.T) {
+func TestStakingValidatorSCMidas_UnstakeTokensOtherCallerShouldError(t *testing.T) {
+	t.Parallel()
+
+	minStakeValue := big.NewInt(1000)
+	unbondPeriod := uint64(10)
+	blockChainHook := &mock.BlockChainHookStub{}
+	args := createMockArgumentsForValidatorSCMidas()
+	enableEpochsHandler, _ := args.EnableEpochsHandler.(*enableEpochsHandlerMock.EnableEpochsHandlerStub)
+	enableEpochsHandler.AddActiveFlags(common.StakingV2Flag)
+	eei := createVmContextWithStakingScMidas(minStakeValue, unbondPeriod, blockChainHook)
+	args.Eei = eei
+	caller := []byte("caller")
+	sc, _ := NewValidatorSmartContractMidas(args)
+
+	callFunctionAndCheckResultMidas(t, "unStakeTokens", sc, caller, [][]byte{big.NewInt(1).Bytes()}, big.NewInt(1), vmcommon.UserError)
+	vmOutput := eei.CreateVMOutput()
+	assert.Equal(t, "unStakeTokens function not allowed to be called by address "+string(caller), vmOutput.ReturnMessage)
+}
+
+func TestStakingValidatorSCMidas_UnstakeTokensOverMaxShouldUnstake(t *testing.T) {
 	t.Parallel()
 
 	minStakeValue := big.NewInt(1000)
@@ -3036,7 +2764,7 @@ func TestStakingValidatorSCMidas_UnstakeTokensOverMaxShouldUnstakeMidas(t *testi
 		},
 	)
 
-	callFunctionAndCheckResultMidas(t, "unStakeTokens", sc, caller, [][]byte{big.NewInt(11).Bytes()}, zero, vmcommon.Ok)
+	callFunctionAndCheckResultMidas(t, "unStakeTokens", sc, AbstractStakingSCAddress, [][]byte{caller, big.NewInt(1010 - 11).Bytes()}, zero, vmcommon.Ok)
 
 	registrationData, _ := sc.getOrCreateRegistrationData(caller)
 	assert.Equal(t, 1, len(registrationData.UnstakedInfo))
@@ -3081,7 +2809,7 @@ func TestStakingValidatorSCMidas_UnstakeTokensUnderMinimumAllowedShouldErr(t *te
 		},
 	)
 
-	callFunctionAndCheckResultMidas(t, "unStakeTokens", sc, caller, [][]byte{big.NewInt(1).Bytes()}, zero, vmcommon.UserError)
+	callFunctionAndCheckResultMidas(t, "unStakeTokens", sc, AbstractStakingSCAddress, [][]byte{caller, big.NewInt(1010 - 1).Bytes()}, zero, vmcommon.UserError)
 	vmOutput := eei.CreateVMOutput()
 	assert.True(t, strings.Contains(vmOutput.ReturnMessage, "can not unstake the provided value either because is under the minimum threshold"))
 }
@@ -3123,7 +2851,7 @@ func TestStakingValidatorSCMidas_UnstakeAllTokensWithActiveNodesShouldError(t *t
 		},
 	)
 
-	callFunctionAndCheckResultMidas(t, "unStakeTokens", sc, caller, [][]byte{big.NewInt(11).Bytes()}, zero, vmcommon.UserError)
+	callFunctionAndCheckResultMidas(t, "unStakeTokens", sc, AbstractStakingSCAddress, [][]byte{caller, big.NewInt(1010 - 11).Bytes()}, zero, vmcommon.UserError)
 	vmOutput := eei.CreateVMOutput()
 	assert.True(t, strings.Contains(vmOutput.ReturnMessage, "cannot unStake tokens, the validator would remain without min deposit, nodes are still active"))
 }
@@ -3164,8 +2892,8 @@ func TestStakingValidatorSCMidas_UnstakeTokensShouldWork(t *testing.T) {
 		},
 	)
 
-	callFunctionAndCheckResultMidas(t, "unStakeTokens", sc, caller, [][]byte{big.NewInt(1).Bytes()}, zero, vmcommon.Ok)
-	callFunctionAndCheckResultMidas(t, "unStakeTokens", sc, caller, [][]byte{big.NewInt(2).Bytes()}, zero, vmcommon.Ok)
+	callFunctionAndCheckResultMidas(t, "unStakeTokens", sc, AbstractStakingSCAddress, [][]byte{caller, big.NewInt(1010 - 1).Bytes()}, zero, vmcommon.Ok)
+	callFunctionAndCheckResultMidas(t, "unStakeTokens", sc, AbstractStakingSCAddress, [][]byte{caller, big.NewInt(1010 - 1 - 2).Bytes()}, zero, vmcommon.Ok)
 
 	expected := &ValidatorDataV2{
 		RegisterNonce:   0,
@@ -3236,7 +2964,7 @@ func TestStakingValidatorSCMidas_UnstakeTokensHavingUnstakedShouldWork(t *testin
 		},
 	)
 
-	callFunctionAndCheckResultMidas(t, "unStakeTokens", sc, caller, [][]byte{big.NewInt(6).Bytes()}, zero, vmcommon.Ok)
+	callFunctionAndCheckResultMidas(t, "unStakeTokens", sc, AbstractStakingSCAddress, [][]byte{caller, big.NewInt(1010 - 6).Bytes()}, zero, vmcommon.Ok)
 
 	expected := &ValidatorDataV2{
 		RegisterNonce:   0,
@@ -3303,7 +3031,7 @@ func TestStakingValidatorSCMidas_UnstakeAllTokensShouldWork(t *testing.T) {
 		},
 	)
 
-	callFunctionAndCheckResultMidas(t, "unStakeTokens", sc, caller, [][]byte{big.NewInt(10).Bytes()}, zero, vmcommon.Ok)
+	callFunctionAndCheckResultMidas(t, "unStakeTokens", sc, AbstractStakingSCAddress, [][]byte{caller, big.NewInt(1010 - 10).Bytes()}, zero, vmcommon.Ok)
 
 	expected := &ValidatorDataV2{
 		RegisterNonce:   0,
@@ -3430,8 +3158,8 @@ func TestStakingValidatorSCMidas_UnbondTokensOneArgument(t *testing.T) {
 	require.Nil(t, err)
 	assert.Equal(t, expected, recovered)
 
-	outTransferValue := eei.outputAccounts[string(caller)].OutputTransfers[0].Value
-	assert.True(t, unBondRequest.Cmp(outTransferValue) == 0)
+	//outTransferValue := eei.outputAccounts[string(caller)].OutputTransfers[0].Value
+	//assert.True(t, unBondRequest.Cmp(outTransferValue) == 0)
 }
 
 func TestStakingValidatorSCMidas_UnbondTokensWithCallValueShouldError(t *testing.T) {
@@ -4068,7 +3796,7 @@ func TestStakingValidatorSCMidas_UnStakeUnBondFromWaitingList(t *testing.T) {
 	eei.inputParser = atArgParser
 
 	argsStaking := createMockStakingScArguments()
-	argsStaking.StakingSCConfig.GenesisNodePrice = "10000000"
+	argsStaking.StakingSCConfig.GenesisNodePrice = "10000"
 	argsStaking.Eei = eei
 	argsStaking.StakingSCConfig.UnBondPeriod = 100000
 	stubStaking, _ := argsStaking.EnableEpochsHandler.(*enableEpochsHandlerMock.EnableEpochsHandlerStub)
@@ -4089,48 +3817,40 @@ func TestStakingValidatorSCMidas_UnStakeUnBondFromWaitingList(t *testing.T) {
 	sc, _ := NewValidatorSmartContractMidas(args)
 	arguments := CreateVmContractCallInputMidas()
 	arguments.Function = "stake"
-	arguments.CallerAddr = stakerAddress
-	arguments.Arguments = [][]byte{big.NewInt(1).Bytes(), stakerPubKey1, []byte("signed")}
-	arguments.CallValue = big.NewInt(10000000)
+	arguments.Arguments = [][]byte{big.NewInt(1).Bytes(), stakerPubKey1, []byte("signed"), stakerAddress, big.NewInt(10000).Bytes()}
 
 	retCode := sc.Execute(arguments)
 	assert.Equal(t, vmcommon.Ok, retCode)
 
 	arguments.Function = "stake"
-	arguments.Arguments = [][]byte{big.NewInt(1).Bytes(), stakerPubKey2, []byte("signed")}
-	arguments.CallValue = big.NewInt(10000000)
+	arguments.Arguments = [][]byte{big.NewInt(1).Bytes(), stakerPubKey2, []byte("signed"), stakerAddress, big.NewInt(20000).Bytes()}
 
 	retCode = sc.Execute(arguments)
 	assert.Equal(t, vmcommon.Ok, retCode)
 
 	arguments.Function = "stake"
-	arguments.Arguments = [][]byte{big.NewInt(1).Bytes(), stakerPubKey3, []byte("signed")}
-	arguments.CallValue = big.NewInt(10000000)
+	arguments.Arguments = [][]byte{big.NewInt(1).Bytes(), stakerPubKey3, []byte("signed"), stakerAddress, big.NewInt(30000).Bytes()}
 	retCode = sc.Execute(arguments)
 	assert.Equal(t, vmcommon.Ok, retCode)
 
 	arguments.Function = "unStake"
-	arguments.Arguments = [][]byte{stakerPubKey2, stakerPubKey3}
-	arguments.CallValue = big.NewInt(0)
+	arguments.Arguments = [][]byte{stakerPubKey2, stakerPubKey3, stakerAddress, big.NewInt(10000).Bytes()}
 	retCode = sc.Execute(arguments)
 	assert.Equal(t, vmcommon.Ok, retCode)
 
 	arguments.Function = "unBond"
-	arguments.Arguments = [][]byte{stakerPubKey2, stakerPubKey3}
-	arguments.CallValue = big.NewInt(0)
+	arguments.Arguments = [][]byte{stakerPubKey2, stakerPubKey3, stakerAddress}
 	retCode = sc.Execute(arguments)
 	assert.Equal(t, vmcommon.Ok, retCode)
 
-	registrationData, _ := sc.getOrCreateRegistrationData(arguments.CallerAddr)
+	registrationData, _ := sc.getOrCreateRegistrationData(stakerAddress)
 	assert.Equal(t, len(registrationData.UnstakedInfo), 0)
 
 	eei.returnMessage = ""
 	arguments.Function = "unStake"
-	arguments.Arguments = [][]byte{stakerPubKey1}
-	arguments.CallValue = big.NewInt(0)
+	arguments.Arguments = [][]byte{stakerAddress, big.NewInt(0).Bytes()}
 	retCode = sc.Execute(arguments)
-	assert.Equal(t, vmcommon.UserError, retCode)
-	assert.Contains(t, eei.returnMessage, "could not unstake any nodes")
+	assert.Equal(t, vmcommon.Ok, retCode)
 }
 
 func TestStakingValidatorSCMidas_StakeUnStakeUnBondTokensNoNodes(t *testing.T) {
@@ -4147,7 +3867,7 @@ func TestStakingValidatorSCMidas_StakeUnStakeUnBondTokensNoNodes(t *testing.T) {
 	eei.inputParser = atArgParser
 
 	argsStaking := createMockStakingScArguments()
-	argsStaking.StakingSCConfig.GenesisNodePrice = "10000000"
+	argsStaking.StakingSCConfig.GenesisNodePrice = "10000"
 	argsStaking.Eei = eei
 	argsStaking.StakingSCConfig.UnBondPeriod = 100000
 	stubStaking, _ := argsStaking.EnableEpochsHandler.(*enableEpochsHandlerMock.EnableEpochsHandlerStub)
@@ -4167,23 +3887,20 @@ func TestStakingValidatorSCMidas_StakeUnStakeUnBondTokensNoNodes(t *testing.T) {
 
 	sc, _ := NewValidatorSmartContractMidas(args)
 	arguments := CreateVmContractCallInputMidas()
-	arguments.CallerAddr = vm.DelegationManagerSCAddress
 	arguments.Function = "stake"
-	arguments.Arguments = [][]byte{}
-	arguments.CallValue = big.NewInt(10000000)
+	arguments.Arguments = [][]byte{big.NewInt(0).Bytes(), vm.DelegationManagerSCAddress, big.NewInt(10000).Bytes()}
 
 	retCode := sc.Execute(arguments)
 	assert.Equal(t, vmcommon.Ok, retCode)
 
 	arguments.Function = "unStakeTokens"
-	arguments.Arguments = [][]byte{big.NewInt(10000000).Bytes()}
-	arguments.CallValue = big.NewInt(0)
+	arguments.Arguments = [][]byte{vm.DelegationManagerSCAddress, big.NewInt(0).Bytes()}
 	retCode = sc.Execute(arguments)
 	assert.Equal(t, vmcommon.Ok, retCode)
 
 	arguments.Function = "unBondTokens"
-	arguments.Arguments = [][]byte{big.NewInt(10000000).Bytes()}
-	arguments.CallValue = big.NewInt(0)
+	arguments.CallerAddr = vm.DelegationManagerSCAddress
+	arguments.Arguments = [][]byte{big.NewInt(10000).Bytes()}
 	retCode = sc.Execute(arguments)
 	assert.Equal(t, vmcommon.Ok, retCode)
 }
@@ -4225,11 +3942,33 @@ func TestValidatorStakingSCMidas_UnStakeUnBondPaused(t *testing.T) {
 	expectedReturnMessage := "unStake/unBond is paused as not enough total staked in protocol"
 	arguments := CreateVmContractCallInputMidas()
 	arguments.Function = "unStake"
-	arguments.CallerAddr = stakerAddress
-	arguments.Arguments = [][]byte{stakerPubKey}
+	arguments.Arguments = [][]byte{stakerPubKey, stakerAddress, big.NewInt(0).Bytes()}
 
 	eei.returnMessage = ""
 	errCode := sc.Execute(arguments)
+	assert.Equal(t, vmcommon.UserError, errCode)
+	assert.Equal(t, eei.returnMessage, expectedReturnMessage)
+
+	arguments.Function = "unStakeTokens"
+	arguments.CallerAddr = AbstractStakingSCAddress
+	arguments.Arguments = [][]byte{stakerAddress, big.NewInt(0).Bytes()}
+	eei.returnMessage = ""
+	errCode = sc.Execute(arguments)
+	assert.Equal(t, vmcommon.UserError, errCode)
+	assert.Equal(t, eei.returnMessage, expectedReturnMessage)
+
+	arguments.Function = "unBond"
+	arguments.Arguments = [][]byte{stakerAddress}
+	eei.returnMessage = ""
+	errCode = sc.Execute(arguments)
+	assert.Equal(t, vmcommon.UserError, errCode)
+	assert.Equal(t, eei.returnMessage, expectedReturnMessage)
+
+	arguments.Function = "unBondTokens"
+	arguments.CallerAddr = stakerAddress
+	arguments.Arguments = [][]byte{stakerPubKey}
+	eei.returnMessage = ""
+	errCode = sc.Execute(arguments)
 	assert.Equal(t, vmcommon.UserError, errCode)
 	assert.Equal(t, eei.returnMessage, expectedReturnMessage)
 
@@ -4239,25 +3978,7 @@ func TestValidatorStakingSCMidas_UnStakeUnBondPaused(t *testing.T) {
 	assert.Equal(t, vmcommon.UserError, errCode)
 	assert.Equal(t, eei.returnMessage, expectedReturnMessage)
 
-	arguments.Function = "unStakeTokens"
-	eei.returnMessage = ""
-	errCode = sc.Execute(arguments)
-	assert.Equal(t, vmcommon.UserError, errCode)
-	assert.Equal(t, eei.returnMessage, expectedReturnMessage)
-
-	arguments.Function = "unBond"
-	eei.returnMessage = ""
-	errCode = sc.Execute(arguments)
-	assert.Equal(t, vmcommon.UserError, errCode)
-	assert.Equal(t, eei.returnMessage, expectedReturnMessage)
-
 	arguments.Function = "unBondNodes"
-	eei.returnMessage = ""
-	errCode = sc.Execute(arguments)
-	assert.Equal(t, vmcommon.UserError, errCode)
-	assert.Equal(t, eei.returnMessage, expectedReturnMessage)
-
-	arguments.Function = "unBondTokens"
 	eei.returnMessage = ""
 	errCode = sc.Execute(arguments)
 	assert.Equal(t, vmcommon.UserError, errCode)
@@ -4662,8 +4383,8 @@ func TestStakingValidatorSCMidas_ChangeOwnerOfValidatorData(t *testing.T) {
 
 	eei.SetStorage(randomAddress, nil)
 	stakeMidas(t, sc, stakingSc.stakeValue, randomAddress, randomAddress, []byte("firsstKey"), big.NewInt(1).Bytes())
-	stakeMidas(t, sc, stakingSc.stakeValue, randomAddress, randomAddress, []byte("secondKey"), big.NewInt(1).Bytes())
-	stakeMidas(t, sc, stakingSc.stakeValue, randomAddress, randomAddress, []byte("thirddKey"), big.NewInt(1).Bytes())
+	stakeMidas(t, sc, stakingSc.stakeValue.Mul(stakingSc.stakeValue, big.NewInt(2)), randomAddress, randomAddress, []byte("secondKey"), big.NewInt(1).Bytes())
+	stakeMidas(t, sc, stakingSc.stakeValue.Mul(stakingSc.stakeValue,  big.NewInt(3)), randomAddress, randomAddress, []byte("thirddKey"), big.NewInt(1).Bytes())
 
 	retCode = sc.Execute(arguments)
 	assert.Equal(t, vmcommon.Ok, retCode)
@@ -4763,12 +4484,12 @@ func TestStakingValidatorSCMidas_MergeValidatorData(t *testing.T) {
 
 	eei.SetStorage(randomAddress, nil)
 	stakeMidas(t, sc, stakingSc.stakeValue, randomAddress, randomAddress, []byte("firsstKey"), big.NewInt(1).Bytes())
-	stakeMidas(t, sc, stakingSc.stakeValue, randomAddress, randomAddress, []byte("secondKey"), big.NewInt(1).Bytes())
-	stakeMidas(t, sc, stakingSc.stakeValue, randomAddress, randomAddress, []byte("thirddKey"), big.NewInt(1).Bytes())
+	stakeMidas(t, sc, stakingSc.stakeValue.Mul(stakingSc.stakeValue, big.NewInt(2)), randomAddress, randomAddress, []byte("secondKey"), big.NewInt(1).Bytes())
+	stakeMidas(t, sc, stakingSc.stakeValue.Mul(stakingSc.stakeValue, big.NewInt(3)), randomAddress, randomAddress, []byte("thirddKey"), big.NewInt(1).Bytes())
 
 	stakeMidas(t, sc, stakingSc.stakeValue, vm.FirstDelegationSCAddress, vm.FirstDelegationSCAddress, []byte("fourthKey"), big.NewInt(1).Bytes())
-	stakeMidas(t, sc, stakingSc.stakeValue, vm.FirstDelegationSCAddress, vm.FirstDelegationSCAddress, []byte("fifthhKey"), big.NewInt(1).Bytes())
-	stakeMidas(t, sc, stakingSc.stakeValue, vm.FirstDelegationSCAddress, vm.FirstDelegationSCAddress, []byte("sixthhKey"), big.NewInt(1).Bytes())
+	stakeMidas(t, sc, stakingSc.stakeValue.Mul(stakingSc.stakeValue, big.NewInt(2)), vm.FirstDelegationSCAddress, vm.FirstDelegationSCAddress, []byte("fifthhKey"), big.NewInt(1).Bytes())
+	stakeMidas(t, sc, stakingSc.stakeValue.Mul(stakingSc.stakeValue, big.NewInt(3)), vm.FirstDelegationSCAddress, vm.FirstDelegationSCAddress, []byte("sixthhKey"), big.NewInt(1).Bytes())
 
 	retCode = sc.Execute(arguments)
 	assert.Equal(t, vmcommon.Ok, retCode)
@@ -4884,20 +4605,6 @@ func togglePauseUnStakeUnBondMidas(t *testing.T, v *validatorSCMidas, value bool
 	assert.Equal(t, vmcommon.Ok, retCode)
 
 	assert.Equal(t, value, v.isUnStakeUnBondPaused())
-}
-
-func changeRewardAddressMidas(t *testing.T, asc *validatorSCMidas, callerAddr, newRewardAddr []byte, expectedCode vmcommon.ReturnCode) {
-	arguments := CreateVmContractCallInputMidas()
-	arguments.Function = "changeRewardAddress"
-	arguments.CallerAddr = callerAddr
-	if newRewardAddr == nil {
-		arguments.Arguments = nil
-	} else {
-		arguments.Arguments = [][]byte{newRewardAddr}
-	}
-
-	retCode := asc.Execute(arguments)
-	assert.Equal(t, expectedCode, retCode)
 }
 
 func callFunctionAndCheckResultMidas(

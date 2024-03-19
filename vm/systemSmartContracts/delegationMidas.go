@@ -288,6 +288,7 @@ func (d *delegationMidas) initFromValidatorData(args *vmcommon.ContractCallInput
 
 	ownerAddress := args.Arguments[0]
 	argumentsForChange := [][]byte{ownerAddress, args.RecipientAddr}
+	// TODO: Proxy this through Abstract Staking?
 	vmOutput, err := d.executeOnValidatorSC(d.delegationMgrSCAddress, "changeOwnerOfValidatorData", argumentsForChange, zero)
 	if err != nil {
 		d.eei.AddReturnMessage(err.Error())
@@ -345,6 +346,7 @@ func (d *delegationMidas) mergeValidatorDataToDelegation(args *vmcommon.Contract
 	}
 
 	argumentsForMerge := [][]byte{validatorAddress, args.RecipientAddr}
+	// TODO: Proxy this through Abstract Staking?
 	vmOutput, err := d.executeOnValidatorSC(d.delegationMgrSCAddress, "mergeValidatorData", argumentsForMerge, zero)
 	if err != nil {
 		d.eei.AddReturnMessage(err.Error())

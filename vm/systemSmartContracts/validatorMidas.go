@@ -151,13 +151,13 @@ func (v *validatorSCMidas) Execute(args *vmcommon.ContractCallInput) vmcommon.Re
 	case "unStake":
 		return v.unStake(args)
 	case "unStakeNodes": // TODO: Make these to only be callable by delegation contracts or proxy it through abstract staking?
-		return v.unStakeNodes(args) // TODO: Make these to only be callable by delegation contracts or proxy it through abstract staking?
+		return v.unStakeNodes(args)
 	case "unStakeTokens":
 		return v.unStakeTokens(args)
 	case "unBond":
 		return v.unBond(args)
 	case "unBondNodes":
-		return v.unBondNodes(args)  // TODO: Make these to only be callable by delegation contracts or proxy it through abstract staking?
+		return v.unBondNodes(args)
 	case "unBondTokens":
 		return v.unBondTokens(args)
 	case "get":

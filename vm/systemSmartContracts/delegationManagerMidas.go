@@ -108,7 +108,7 @@ func (d *delegationManagerMidas) Execute(args *vmcommon.ContractCallInput) vmcom
 		return d.getAllContractAddresses(args)
 	case "getContractConfig":
 		return d.getContractConfig(args)
-	case "makeNewContractFromValidatorData":
+	case "makeNewContractFromValidatorData": // TODO: These functions do not work as expected yet because they don't interact with the Abstract Staking contract
 		return d.makeNewContractFromValidatorData(args)
 	case "mergeValidatorToDelegationSameOwner":
 		return d.mergeValidatorToDelegation(args, d.checkCallerIsOwnerOfContract)
@@ -141,7 +141,7 @@ func (d *delegationManagerMidas) createNewDelegationContract(args *vmcommon.Cont
 		return vmcommon.UserError
 	}
 
-	_, returnCode := d.deployNewContract(args, true, core.SCDeployInitFunctionName, args.CallerAddr, big.NewInt(0), args.Arguments)
+	_, returnCode := d.deployNewContract(args, false, core.SCDeployInitFunctionName, args.CallerAddr, big.NewInt(0), args.Arguments)
 
 	return returnCode
 }

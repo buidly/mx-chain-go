@@ -139,7 +139,7 @@ func (d *delegationMidas) Execute(args *vmcommon.ContractCallInput) vmcommon.Ret
 	case core.SCDeployInitFunctionName:
 		return d.init(args)
 	case initFromValidatorData:
-		return d.initFromValidatorData(args)
+		return d.initFromValidatorData(args) // TODO: These don't work properly since they don't interact with the Abstract Staking contract
 	case mergeValidatorDataToDelegation:
 		return d.mergeValidatorDataToDelegation(args)
 	case "whitelistForMerge":
@@ -216,12 +216,8 @@ func (d *delegationMidas) Execute(args *vmcommon.ContractCallInput) vmcommon.Ret
 		return d.setMetaData(args)
 	case "getMetaData":
 		return d.getMetaData(args)
-	case "addTokens":
-		return d.addTokens(args)
 	case "correctNodesStatus":
 		return d.correctNodesStatus(args)
-	case changeOwner:
-		return d.changeOwner(args)
 	case "synchronizeOwner":
 		return d.synchronizeOwner(args)
 	}

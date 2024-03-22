@@ -20,7 +20,7 @@ type validatorSCMidas struct {
 
 type ArgsValidatorSmartContractMidas struct {
 	ArgsValidatorSmartContract
-	AbstractStakingAddr    []byte
+	AbstractStakingAddr []byte
 }
 
 // NewValidatorSmartContract creates an validator smart contract
@@ -220,9 +220,9 @@ func (v *validatorSCMidas) stake(args *vmcommon.ContractCallInput) vmcommon.Retu
 	}
 
 	lenArgs := len(args.Arguments)
-	validatorAddress := args.Arguments[lenArgs - 2]
-	totalPower := big.NewInt(0).SetBytes(args.Arguments[lenArgs - 1])
-	lenAndBlsKeys := args.Arguments[:lenArgs - 2]
+	validatorAddress := args.Arguments[lenArgs-2]
+	totalPower := big.NewInt(0).SetBytes(args.Arguments[lenArgs-1])
+	lenAndBlsKeys := args.Arguments[:lenArgs-2]
 
 	validatorConfig := v.getConfig(v.eei.BlockChainHook().CurrentEpoch())
 	registrationData, err := v.getOrCreateRegistrationData(validatorAddress)
@@ -364,7 +364,7 @@ func (v *validatorSCMidas) unStake(args *vmcommon.ContractCallInput) vmcommon.Re
 		unStakedEpoch = 0
 	}
 
-	if numSuccessFromActive + numSuccessFromWaiting > 0 {
+	if numSuccessFromActive+numSuccessFromWaiting > 0 {
 		returnCode = v.processUnStakeValue(registrationData, difference, unStakedEpoch)
 		if returnCode != vmcommon.Ok {
 			return returnCode
@@ -449,11 +449,6 @@ func (v *validatorSCMidas) unBond(args *vmcommon.ContractCallInput) vmcommon.Ret
 		return vmcommon.UserError
 	}
 
-	// TODO: Should we also implement unbondV1?
-	//if !v.enableEpochsHandler.IsFlagEnabled(common.StakingV2Flag) {
-	//	return v.unBondV1(args)
-	//}
-
 	if v.isUnStakeUnBondPaused() {
 		v.eei.AddReturnMessage("unStake/unBond is paused as not enough total staked in protocol")
 		return vmcommon.UserError
@@ -499,16 +494,9 @@ func (v *validatorSCMidas) unBondTokens(args *vmcommon.ContractCallInput) vmcomm
 	}
 
 	valueToUnBond := big.NewInt(0)
-	if len(args.Arguments) > 1 {
+	if len(args.Arguments) > 0 {
 		v.eei.AddReturnMessage("too many arguments")
 		return vmcommon.UserError
-	}
-	if len(args.Arguments) == 1 {
-		valueToUnBond = big.NewInt(0).SetBytes(args.Arguments[0])
-		if valueToUnBond.Cmp(zero) <= 0 {
-			v.eei.AddReturnMessage("cannot unBond negative value or zero value")
-			return vmcommon.UserError
-		}
 	}
 
 	totalUnBond, returnCode := v.unBondTokensFromRegistrationData(registrationData, valueToUnBond)
@@ -558,7 +546,7 @@ func (v *validatorSCMidas) unJail(args *vmcommon.ContractCallInput) vmcommon.Ret
 		return vmcommon.UserError
 	}
 
-	numBLSKeys := len(args.Arguments) - 1;
+	numBLSKeys := len(args.Arguments) - 1
 	validatorAddress := args.Arguments[numBLSKeys]
 	blsKeys := args.Arguments[:numBLSKeys]
 	validatorConfig := v.getConfig(v.eei.BlockChainHook().CurrentEpoch())
@@ -629,8 +617,8 @@ func (v *validatorSCMidas) basicChecksForUnStakeNodes(args *vmcommon.ContractCal
 	}
 
 	lenArgs := len(args.Arguments)
-	validatorAddress := args.Arguments[lenArgs - 2]
-	totalPower := big.NewInt(0).SetBytes(args.Arguments[lenArgs - 1])
+	validatorAddress := args.Arguments[lenArgs-2]
+	totalPower := big.NewInt(0).SetBytes(args.Arguments[lenArgs-1])
 
 	registrationData, err := v.getOrCreateRegistrationData(validatorAddress)
 	if err != nil {
@@ -638,13 +626,13 @@ func (v *validatorSCMidas) basicChecksForUnStakeNodes(args *vmcommon.ContractCal
 		return nil, nil, nil, nil, vmcommon.UserError
 	}
 
-	err = v.eei.UseGas(v.gasCost.MetaChainSystemSCsCost.UnStake * uint64(lenArgs - 2))
+	err = v.eei.UseGas(v.gasCost.MetaChainSystemSCsCost.UnStake * uint64(lenArgs-2))
 	if err != nil {
 		v.eei.AddReturnMessage(vm.InsufficientGasLimit)
 		return nil, nil, nil, nil, vmcommon.OutOfGas
 	}
 
-	blsKeys := args.Arguments[:lenArgs - 2]
+	blsKeys := args.Arguments[:lenArgs-2]
 	err = verifyBLSPublicKeys(registrationData, blsKeys)
 	if err != nil {
 		v.eei.AddReturnMessage(vm.CannotGetAllBlsKeysFromRegistrationData + err.Error())
@@ -669,7 +657,7 @@ func (v *validatorSCMidas) checkUnBondArguments(args *vmcommon.ContractCallInput
 	}
 
 	lenArgs := len(args.Arguments)
-	validatorAddress := args.Arguments[lenArgs - 1]
+	validatorAddress := args.Arguments[lenArgs-1]
 
 	registrationData, err := v.getOrCreateRegistrationData(validatorAddress)
 	if err != nil {
@@ -677,14 +665,14 @@ func (v *validatorSCMidas) checkUnBondArguments(args *vmcommon.ContractCallInput
 		return nil, nil, nil, vmcommon.UserError
 	}
 
-	blsKeys := args.Arguments[:lenArgs - 1]
+	blsKeys := args.Arguments[:lenArgs-1]
 	err = verifyBLSPublicKeys(registrationData, blsKeys)
 	if err != nil {
 		v.eei.AddReturnMessage(vm.CannotGetAllBlsKeysFromRegistrationData + err.Error())
 		return nil, nil, nil, vmcommon.UserError
 	}
 
-	err = v.eei.UseGas(v.gasCost.MetaChainSystemSCsCost.UnBond * uint64(lenArgs - 1))
+	err = v.eei.UseGas(v.gasCost.MetaChainSystemSCsCost.UnBond * uint64(lenArgs-1))
 	if err != nil {
 		v.eei.AddReturnMessage(vm.InsufficientGasLimit)
 		return nil, nil, nil, vmcommon.OutOfGas

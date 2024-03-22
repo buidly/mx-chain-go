@@ -108,12 +108,12 @@ func (d *delegationManagerMidas) Execute(args *vmcommon.ContractCallInput) vmcom
 		return d.getAllContractAddresses(args)
 	case "getContractConfig":
 		return d.getContractConfig(args)
-	case "makeNewContractFromValidatorData": // TODO: These functions do not work as expected yet because they don't interact with the Abstract Staking contract
-		return d.makeNewContractFromValidatorData(args)
-	case "mergeValidatorToDelegationSameOwner":
-		return d.mergeValidatorToDelegation(args, d.checkCallerIsOwnerOfContract)
-	case "mergeValidatorToDelegationWithWhitelist":
-		return d.mergeValidatorToDelegation(args, d.isAddressWhiteListedForMerge)
+	//case "makeNewContractFromValidatorData": // TODO: These functions do not work as expected yet because they don't interact with the Abstract Staking contract
+	//	return d.makeNewContractFromValidatorData(args)
+	//case "mergeValidatorToDelegationSameOwner":
+	//	return d.mergeValidatorToDelegation(args, d.checkCallerIsOwnerOfContract)
+	//case "mergeValidatorToDelegationWithWhitelist":
+	//	return d.mergeValidatorToDelegation(args, d.isAddressWhiteListedForMerge)
 	}
 
 	d.eei.AddReturnMessage("invalid function to call")

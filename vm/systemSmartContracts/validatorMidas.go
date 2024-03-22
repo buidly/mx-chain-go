@@ -182,10 +182,10 @@ func (v *validatorSCMidas) Execute(args *vmcommon.ContractCallInput) vmcommon.Re
 		return v.getUnStakedTokensList(args)
 	case "reStakeUnStakedNodes":
 		return v.reStakeUnStakedNodes(args)
-	case "mergeValidatorData":
-		return v.mergeValidatorData(args) // TODO: These should also be overwritten or we should disable this functionality?
-	case "changeOwnerOfValidatorData":
-		return v.changeOwnerOfValidatorData(args)
+	//case "mergeValidatorData":
+	//	return v.mergeValidatorData(args) // TODO: These should also be overwritten or we should disable this functionality?
+	//case "changeOwnerOfValidatorData":
+	//	return v.changeOwnerOfValidatorData(args)
 	}
 
 	v.eei.AddReturnMessage("invalid method to call")
@@ -477,7 +477,6 @@ func (v *validatorSCMidas) unBond(args *vmcommon.ContractCallInput) vmcommon.Ret
 	return vmcommon.Ok
 }
 
-// TODO: Should this be proxied through Abstract Staking?
 func (v *validatorSCMidas) unBondTokens(args *vmcommon.ContractCallInput) vmcommon.ReturnCode {
 	registrationData, returnCode := v.basicCheckForUnStakeUnBond(args, args.CallerAddr)
 	if returnCode != vmcommon.Ok {
@@ -515,12 +514,6 @@ func (v *validatorSCMidas) unBondTokens(args *vmcommon.ContractCallInput) vmcomm
 		v.eei.AddReturnMessage("cannot unBond tokens, the validator would remain without min deposit, nodes are still active")
 		return vmcommon.UserError
 	}
-
-	//err = v.eei.Transfer(args.CallerAddr, args.RecipientAddr, totalUnBond, nil, 0)
-	//if err != nil {
-	//	v.eei.AddReturnMessage("transfer error on unBond function")
-	//	return vmcommon.UserError
-	//}
 
 	err = v.saveRegistrationData(args.CallerAddr, registrationData)
 	if err != nil {

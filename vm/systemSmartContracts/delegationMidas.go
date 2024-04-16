@@ -620,6 +620,13 @@ func (d *delegationMidas) withdraw(args *vmcommon.ContractCallInput) vmcommon.Re
 		return vmOutput.ReturnCode
 	}
 
+	// TODO: Something is not right here...
+	actualUserUnBond, err := d.resolveUnStakedUnBondResponse(vmOutput.ReturnData, totalUnBondable)
+	if err != nil {
+		d.eei.AddReturnMessage(err.Error())
+		return vmcommon.UserError
+	}
+
 	currentEpoch := d.eei.BlockChainHook().CurrentEpoch()
 	totalUnBonded := big.NewInt(0)
 	tempUnStakedFunds := make([][]byte, 0)
@@ -637,6 +644,16 @@ func (d *delegationMidas) withdraw(args *vmcommon.ContractCallInput) vmcommon.Re
 		}
 
 		totalUnBonded.Add(totalUnBonded, fund.Value)
+		if totalUnBonded.Cmp(actualUserUnBond) > 0 {
+			unBondedFromThisFund := big.NewInt(0).Sub(totalUnBonded, actualUserUnBond)
+			fund.Value.Sub(fund.Value, unBondedFromThisFund)
+			err = d.saveFund(fundKey, fund)
+			if err != nil {
+				d.eei.AddReturnMessage(err.Error())
+				return vmcommon.UserError
+			}
+			break
+		}
 
 		withdrawFundKeys = append(withdrawFundKeys, fundKey)
 		d.eei.SetStorage(fundKey, nil)
@@ -729,7 +746,7 @@ func (d *delegationMidas) claimRewards(args *vmcommon.ContractCallInput) vmcommo
 		return vmcommon.OutOfGas
 	}
 	if !bytes.Equal(args.CallerAddr, d.abstractStakingAddr) {
-		d.eei.AddReturnMessage("unJailNodes function not allowed to be called by address " + string(args.CallerAddr))
+		d.eei.AddReturnMessage("claimRewards function not allowed to be called by address " + string(args.CallerAddr))
 		return vmcommon.UserError
 	}
 	if len(args.Arguments) != 1 {

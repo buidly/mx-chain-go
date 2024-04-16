@@ -148,9 +148,11 @@ func (v *validatorSCMidas) Execute(args *vmcommon.ContractCallInput) vmcommon.Re
 		return v.init(args)
 	case "stake":
 		return v.stake(args)
+	case "stakeNodes":
+		return v.stakeNodes(args)
 	case "unStake":
 		return v.unStake(args)
-	case "unStakeNodes": // TODO: Make these to only be callable by delegation contracts or proxy it through abstract staking?
+	case "unStakeNodes":
 		return v.unStakeNodes(args)
 	case "unStakeTokens":
 		return v.unStakeTokens(args)
@@ -247,7 +249,7 @@ func (v *validatorSCMidas) stake(args *vmcommon.ContractCallInput) vmcommon.Retu
 		return v.updateStakeValue(registrationData, validatorAddress)
 	}
 
-	if !isNumArgsCorrectToStake(lenAndBlsKeys) {
+	if !isNumBlsKeysCorrectToStake(lenAndBlsKeys) {
 		v.eei.AddReturnMessage("invalid number of bls keys")
 		return vmcommon.UserError
 	}
@@ -321,6 +323,131 @@ func (v *validatorSCMidas) stake(args *vmcommon.ContractCallInput) vmcommon.Retu
 	)
 
 	err = v.saveRegistrationData(validatorAddress, registrationData)
+	if err != nil {
+		v.eei.AddReturnMessage("cannot save registration data: error " + err.Error())
+		return vmcommon.UserError
+	}
+
+	return vmcommon.Ok
+}
+
+// TODO: Test this
+func (v *validatorSCMidas) stakeNodes(args *vmcommon.ContractCallInput) vmcommon.ReturnCode {
+	err := v.eei.UseGas(v.gasCost.MetaChainSystemSCsCost.Stake)
+	if err != nil {
+		v.eei.AddReturnMessage(vm.InsufficientGasLimit)
+		return vmcommon.OutOfGas
+	}
+
+	isGenesis := v.eei.BlockChainHook().CurrentNonce() == 0
+	stakeEnabled := isGenesis || v.enableEpochsHandler.IsFlagEnabled(common.StakeFlag)
+	if !stakeEnabled {
+		v.eei.AddReturnMessage(vm.StakeNotEnabled)
+		return vmcommon.UserError
+	}
+
+	validatorConfig := v.getConfig(v.eei.BlockChainHook().CurrentEpoch())
+	registrationData, err := v.getOrCreateRegistrationData(args.CallerAddr)
+	if err != nil {
+		v.eei.AddReturnMessage(vm.CannotGetOrCreateRegistrationData + err.Error())
+		return vmcommon.UserError
+	}
+
+	if args.CallValue.Cmp(zero) != 0 {
+		v.eei.AddReturnMessage(vm.TransactionValueMustBeZero)
+		return vmcommon.UserError
+	}
+
+	if registrationData.TotalStakeValue.Cmp(validatorConfig.NodePrice) < 0 &&
+		!core.IsSmartContractAddress(args.CallerAddr) {
+		v.eei.AddReturnMessage(
+			fmt.Sprintf("insufficient stake value: expected %s, got %s",
+				validatorConfig.NodePrice.String(),
+				registrationData.TotalStakeValue.String(),
+			),
+		)
+		return vmcommon.UserError
+	}
+
+	lenArgs := len(args.Arguments)
+	if lenArgs == 0 {
+		return v.updateStakeValue(registrationData, args.CallerAddr)
+	}
+
+	if !isNumBlsKeysCorrectToStake(args.Arguments) {
+		v.eei.AddReturnMessage("invalid number of bls keys")
+		return vmcommon.UserError
+	}
+
+	maxNodesToRun := big.NewInt(0).SetBytes(args.Arguments[0]).Uint64()
+	if maxNodesToRun == 0 {
+		v.eei.AddReturnMessage("number of nodes argument must be greater than zero")
+		return vmcommon.UserError
+	}
+
+	err = v.eei.UseGas((maxNodesToRun - 1) * v.gasCost.MetaChainSystemSCsCost.Stake)
+	if err != nil {
+		v.eei.AddReturnMessage(vm.InsufficientGasLimit)
+		return vmcommon.OutOfGas
+	}
+
+	isAlreadyRegistered := len(registrationData.RewardAddress) > 0
+	if !isAlreadyRegistered {
+		registrationData.RewardAddress = args.CallerAddr
+	}
+
+	registrationData.MaxStakePerNode = big.NewInt(0).Set(registrationData.TotalStakeValue)
+	registrationData.Epoch = v.eei.BlockChainHook().CurrentEpoch()
+
+	blsKeys, newKeys, err := v.registerBLSKeys(registrationData, args.CallerAddr, args.CallerAddr, args.Arguments)
+	if err != nil {
+		v.eei.AddReturnMessage("cannot register bls key: error " + err.Error())
+		return vmcommon.UserError
+	}
+	if v.enableEpochsHandler.IsFlagEnabled(common.DoubleKeyProtectionFlag) && checkDoubleBLSKeys(blsKeys) {
+		v.eei.AddReturnMessage("invalid arguments, found same bls key twice")
+		return vmcommon.UserError
+	}
+
+	numQualified := big.NewInt(0).Div(registrationData.TotalStakeValue, validatorConfig.NodePrice)
+	if uint64(len(registrationData.BlsPubKeys)) > numQualified.Uint64() {
+		if !v.enableEpochsHandler.IsFlagEnabled(common.StakingV2Flag) {
+			// backward compatibility
+			v.eei.AddReturnMessage("insufficient funds")
+			return vmcommon.OutOfFunds
+		}
+
+		if uint64(len(newKeys)) > numQualified.Uint64() {
+			totalNeeded := big.NewInt(0).Mul(big.NewInt(int64(len(newKeys))), validatorConfig.NodePrice)
+			v.eei.AddReturnMessage("not enough total stake to activate nodes," +
+				" totalStake: " + registrationData.TotalStakeValue.String() + ", needed: " + totalNeeded.String())
+			return vmcommon.UserError
+		}
+
+		numStakedJailedWaiting, _, errGet := v.getNumStakedAndWaitingNodes(registrationData, make(map[string]struct{}), false)
+		if errGet != nil {
+			v.eei.AddReturnMessage(errGet.Error())
+			return vmcommon.UserError
+		}
+
+		numTotalNodes := uint64(len(newKeys)) + numStakedJailedWaiting
+		if numTotalNodes > numQualified.Uint64() {
+			totalNeeded := big.NewInt(0).Mul(big.NewInt(0).SetUint64(numTotalNodes), validatorConfig.NodePrice)
+			v.eei.AddReturnMessage("not enough total stake to activate nodes," +
+				" totalStake: " + registrationData.TotalStakeValue.String() + ", needed: " + totalNeeded.String())
+			return vmcommon.UserError
+		}
+	}
+
+	v.activateStakingFor(
+		blsKeys,
+		registrationData,
+		validatorConfig.NodePrice,
+		registrationData.RewardAddress,
+		args.CallerAddr,
+	)
+
+	err = v.saveRegistrationData(args.CallerAddr, registrationData)
 	if err != nil {
 		v.eei.AddReturnMessage("cannot save registration data: error " + err.Error())
 		return vmcommon.UserError
@@ -545,7 +672,7 @@ func (v *validatorSCMidas) unJail(args *vmcommon.ContractCallInput) vmcommon.Ret
 	validatorConfig := v.getConfig(v.eei.BlockChainHook().CurrentEpoch())
 	totalUnJailPrice := big.NewInt(0).Mul(validatorConfig.UnJailPrice, big.NewInt(int64(numBLSKeys)))
 
-	// TODO: Add support for ESDT
+	// TODO: Add support for ESDT?
 	if totalUnJailPrice.Cmp(args.CallValue) != 0 {
 		v.eei.AddReturnMessage("wanted exact unjail price * numNodes")
 		return vmcommon.UserError
@@ -672,4 +799,9 @@ func (v *validatorSCMidas) checkUnBondArguments(args *vmcommon.ContractCallInput
 	}
 
 	return registrationData, validatorAddress, blsKeys, vmcommon.Ok
+}
+
+func isNumBlsKeysCorrectToStake(args [][]byte) bool {
+	maxNodesToRun := big.NewInt(0).SetBytes(args[0]).Uint64()
+	return uint64(len(args)) == 2*maxNodesToRun+1
 }

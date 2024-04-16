@@ -19,7 +19,7 @@ type delegationMidas struct {
 
 type ArgsNewDelegationMidas struct {
 	ArgsNewDelegation
-	AbstractStakingAddr    []byte
+	AbstractStakingAddr []byte
 }
 
 // NewDelegationSystemSC creates a new delegation system SC
@@ -159,7 +159,7 @@ func (d *delegationMidas) Execute(args *vmcommon.ContractCallInput) vmcommon.Ret
 	case "unBondNodes":
 		return d.unBondNodes(args)
 	case "unJailNodes":
-		return d.unJailNodes(args) // TODO: Should we also overwrite this since it calls the validator unJail endpoint?
+		return d.unJailNodes(args)
 	case delegate:
 		return d.delegate(args)
 	case "unDelegate":
@@ -173,7 +173,7 @@ func (d *delegationMidas) Execute(args *vmcommon.ContractCallInput) vmcommon.Ret
 	case "modifyTotalDelegationCap":
 		return d.modifyTotalDelegationCap(args)
 	case "updateRewards":
-		return d.updateRewards(args)
+		return d.updateRewards(args) // TODO: This should be handled by Abstract Staking contract
 	case claimRewards:
 		return d.claimRewards(args)
 	case "getRewardData":
@@ -428,7 +428,7 @@ func (d *delegationMidas) delegate(args *vmcommon.ContractCallInput) vmcommon.Re
 		return vmcommon.UserError
 	}
 
-	return d.delegateUser(args, totalPowerAdded, totalPowerAdded, delegatorAddress, dStatus)
+	return d.delegateUser(args, totalPowerAdded, delegatorAddress, dStatus)
 }
 
 func (d *delegationMidas) unDelegate(args *vmcommon.ContractCallInput) vmcommon.ReturnCode {
@@ -683,8 +683,8 @@ func (d *delegationMidas) unJailNodes(args *vmcommon.ContractCallInput) vmcommon
 	}
 
 	lenArgs := len(args.Arguments)
-	delegatorAddress := args.Arguments[lenArgs - 1]
-	blsKeys := args.Arguments[:lenArgs - 1]
+	delegatorAddress := args.Arguments[lenArgs-1]
+	blsKeys := args.Arguments[:lenArgs-1]
 
 	duplicates := checkForDuplicates(blsKeys)
 	if duplicates {
@@ -786,15 +786,11 @@ func (d *delegationMidas) claimRewards(args *vmcommon.ContractCallInput) vmcommo
 }
 
 func (d *delegationMidas) stakeNodes(args *vmcommon.ContractCallInput) vmcommon.ReturnCode {
-	if !bytes.Equal(args.CallerAddr, d.abstractStakingAddr) {
-		d.eei.AddReturnMessage("stakeNodes function not allowed to be called by address " + string(args.CallerAddr))
-		return vmcommon.UserError
-	}
-	returnCode, blsKeys := d.checkOwnerCallValueGasAndDuplicatesMidas(args)
+	returnCode := d.checkOwnerCallValueGasAndDuplicates(args)
 	if returnCode != vmcommon.Ok {
 		return returnCode
 	}
-	if len(args.Arguments) < 2 {
+	if len(args.Arguments) == 0 {
 		d.eei.AddReturnMessage("not enough arguments")
 		return vmcommon.FunctionWrongSignature
 	}
@@ -804,7 +800,7 @@ func (d *delegationMidas) stakeNodes(args *vmcommon.ContractCallInput) vmcommon.
 		return vmcommon.UserError
 	}
 	listToCheck := append(status.NotStakedKeys, status.UnStakedKeys...)
-	foundAll := verifyIfAllBLSPubKeysExist(listToCheck, blsKeys)
+	foundAll := verifyIfAllBLSPubKeysExist(listToCheck, args.Arguments)
 	if !foundAll {
 		d.eei.AddReturnMessage(vm.ErrBLSPublicKeyMismatch.Error())
 		return vmcommon.UserError
@@ -816,7 +812,7 @@ func (d *delegationMidas) stakeNodes(args *vmcommon.ContractCallInput) vmcommon.
 		return vmcommon.UserError
 	}
 
-	numNodesToStake := big.NewInt(int64(len(blsKeys) + len(status.StakedKeys)))
+	numNodesToStake := big.NewInt(int64(len(args.Arguments) + len(status.StakedKeys)))
 	stakeValue := big.NewInt(0).Mul(d.nodePrice, numNodesToStake)
 
 	if globalFund.TotalActive.Cmp(stakeValue) < 0 {
@@ -824,18 +820,23 @@ func (d *delegationMidas) stakeNodes(args *vmcommon.ContractCallInput) vmcommon.
 		return vmcommon.UserError
 	}
 
-	// Here originally the validator contract `stake` endpoint was called, but we call that from Abstract Staking
-	// contract instead
+	stakeArgs := makeStakeArgs(listToCheck, args.Arguments)
+	vmOutput, err := d.executeOnValidatorSC(args.RecipientAddr, "stakeNodes", stakeArgs, zero)
+	if err != nil {
+		d.eei.AddReturnMessage(err.Error())
+		return vmcommon.UserError
+	}
+	if vmOutput.ReturnCode != vmcommon.Ok {
+		return vmOutput.ReturnCode
+	}
 
-	// TODO: Is this right? Or should we get the actual bls success keys from return of validator `stake` endpoint
-	// return data in Abstract Staking?
-	err = d.updateDelegationStatusAfterStake(status, blsKeys, blsKeys)
+	err = d.updateDelegationStatusAfterStake(status, vmOutput.ReturnData, args.Arguments)
 	if err != nil {
 		d.eei.AddReturnMessage(err.Error())
 		return vmcommon.UserError
 	}
 
-	d.createAndAddLogEntry(args, blsKeys...)
+	d.createAndAddLogEntry(args, args.Arguments...)
 
 	return vmcommon.Ok
 }
@@ -935,7 +936,6 @@ func (d *delegationMidas) unBondNodes(args *vmcommon.ContractCallInput) vmcommon
 func (d *delegationMidas) delegateUser(
 	args *vmcommon.ContractCallInput,
 	delegationValue *big.Int,
-	callValue *big.Int,
 	callerAddr []byte,
 	dStatus *DelegationContractStatus,
 ) vmcommon.ReturnCode {
@@ -976,7 +976,7 @@ func (d *delegationMidas) delegateUser(
 	d.createAndAddLogEntryForDelegate(args, delegationValue, globalFund, delegator, dStatus, isNew)
 
 	return d.finishDelegateUser(globalFund, delegator, dConfig, dStatus,
-		callerAddr, args.RecipientAddr, delegationValue, callValue, isNew, true)
+		callerAddr, args.RecipientAddr, delegationValue, isNew, true)
 }
 
 func (d *delegationMidas) finishDelegateUser(
@@ -987,7 +987,6 @@ func (d *delegationMidas) finishDelegateUser(
 	callerAddr []byte,
 	scAddress []byte,
 	delegateValue *big.Int,
-	callValue *big.Int,
 	isNew bool,
 	checkDelegationCap bool,
 ) vmcommon.ReturnCode {
@@ -1025,9 +1024,9 @@ func (d *delegationMidas) finishDelegateUser(
 		return vmcommon.UserError
 	}
 
+	// TODO: Test this
 	stakeArgs := d.makeStakeArgsIfAutomaticActivation(dConfig, dStatus, globalFund)
-	// TODO: This should be done by Abstract Staking contract instead
-	vmOutput, err := d.executeOnValidatorSC(scAddress, "stake", stakeArgs, callValue)
+	vmOutput, err := d.executeOnValidatorSC(scAddress, "stakeNodes", stakeArgs, zero)
 	if err != nil {
 		d.eei.AddReturnMessage(err.Error())
 		return vmcommon.UserError
@@ -1067,8 +1066,8 @@ func (d *delegationMidas) finishDelegateUser(
 
 func (d *delegation) checkOwnerCallValueGasAndDuplicatesMidas(args *vmcommon.ContractCallInput) (vmcommon.ReturnCode, [][]byte) {
 	lenArgs := len(args.Arguments)
-	delegatorAddress := args.Arguments[lenArgs - 1]
-	blsKeys := args.Arguments[:lenArgs - 1]
+	delegatorAddress := args.Arguments[lenArgs-1]
+	blsKeys := args.Arguments[:lenArgs-1]
 
 	if !d.isOwner(delegatorAddress) {
 		d.eei.AddReturnMessage("only owner can call this method")

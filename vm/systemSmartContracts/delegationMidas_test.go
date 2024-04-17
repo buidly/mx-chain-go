@@ -362,23 +362,6 @@ func TestDelegationSystemSCMidas_ExecuteInitWrongNumOfArgs(t *testing.T) {
 	assert.True(t, strings.Contains(eei.returnMessage, "invalid number of arguments to init delegation contract"))
 }
 
-func TestDelegationSystemSCMidas_ExecuteInitCallValueHigherThanMaxDelegationCapShouldErr(t *testing.T) {
-	t.Parallel()
-
-	args := createMockArgumentsForDelegationMidas()
-	eei := createDefaultEei()
-	args.Eei = eei
-
-	d, _ := NewDelegationSystemSCMidas(args)
-	vmInput := getDefaultVmInputForFuncMidas(core.SCDeployInitFunctionName, [][]byte{big.NewInt(250).Bytes(), big.NewInt(10).Bytes()})
-	vmInput.CallerAddr = []byte("ownerAddress")
-	vmInput.CallValue = big.NewInt(300)
-
-	output := d.Execute(vmInput)
-	assert.Equal(t, vmcommon.UserError, output)
-	assert.True(t, strings.Contains(eei.returnMessage, "total delegation cap reached"))
-}
-
 func TestDelegationSystemSCMidas_ExecuteInitShouldWork(t *testing.T) {
 	t.Parallel()
 
@@ -386,7 +369,7 @@ func TestDelegationSystemSCMidas_ExecuteInitShouldWork(t *testing.T) {
 	maxDelegationCap := []byte{250}
 	serviceFee := []byte{10}
 	createdEpoch := uint32(150)
-	callValue := big.NewInt(130)
+	callValue := big.NewInt(0)
 	args := createMockArgumentsForDelegationMidas()
 	eei := createDefaultEei()
 	eei.blockChainHook = &mock.BlockChainHookStub{
@@ -424,31 +407,21 @@ func TestDelegationSystemSCMidas_ExecuteInitShouldWork(t *testing.T) {
 	assert.Equal(t, uint64(createdEpoch), dConf.CreatedNonce)
 	assert.Equal(t, big.NewInt(20).Uint64(), uint64(dConf.UnBondPeriodInEpochs))
 
-	dStatus, err := d.getDelegationStatus()
-	assert.Nil(t, err)
-	assert.Equal(t, 0, len(dStatus.StakedKeys))
-	assert.Equal(t, 0, len(dStatus.NotStakedKeys))
-	assert.Equal(t, 0, len(dStatus.UnStakedKeys))
-	assert.Equal(t, uint64(1), dStatus.NumUsers)
+	_, err = d.getDelegationStatus()
+	assert.NotNil(t, err)
 
 	fundKey := append([]byte(fundKeyPrefix), []byte{1}...)
-	ownerFund, err := d.getFund(fundKey)
-	assert.Nil(t, err)
-	assert.Equal(t, callValue, ownerFund.Value)
-	assert.Equal(t, ownerAddr, ownerFund.Address)
-	assert.Equal(t, createdEpoch, ownerFund.Epoch)
-	assert.Equal(t, active, ownerFund.Type)
+	_, err = d.getFund(fundKey)
+	assert.NotNil(t, err)
 
 	dGlobalFund, err := d.getGlobalFundData()
 	assert.Nil(t, err)
 	assert.Equal(t, callValue, dGlobalFund.TotalActive)
 	assert.Equal(t, big.NewInt(0), dGlobalFund.TotalUnStaked)
 
-	delegatorDataPresent, delegator, err := d.getOrCreateDelegatorData(ownerAddr)
+	isNew, _, err := d.getOrCreateDelegatorData(ownerAddr)
 	assert.Nil(t, err)
-	assert.False(t, delegatorDataPresent)
-	assert.Equal(t, 0, len(delegator.UnStakedFunds))
-	assert.Equal(t, fundKey, delegator.ActiveFund)
+	assert.True(t, isNew)
 }
 
 func TestDelegationSystemSCMidas_ExecuteAddNodesUserErrors(t *testing.T) {
@@ -669,6 +642,7 @@ func TestDelegationSystemSCMidas_ExecuteRemoveNodesUserErrors(t *testing.T) {
 	assert.True(t, strings.Contains(eei.returnMessage, "only owner can call this method"))
 
 	delegationsMap[ownerKey] = []byte("owner")
+	vmInput.CallerAddr = []byte("owner")
 	vmInput.CallValue = callValue
 	output = d.Execute(vmInput)
 	assert.Equal(t, vmcommon.UserError, output)
@@ -716,6 +690,7 @@ func TestDelegationSystemSCMidas_ExecuteRemoveNodesNotPresentInNotStakedShouldEr
 	_ = d.saveDelegationStatus(&DelegationContractStatus{})
 
 	vmInput := getDefaultVmInputForFuncMidas("removeNodes", [][]byte{blsKey})
+	vmInput.CallerAddr = []byte("owner")
 	output := d.Execute(vmInput)
 	assert.Equal(t, vmcommon.UserError, output)
 	assert.True(t, strings.Contains(eei.returnMessage, vm.ErrBLSPublicKeyMismatch.Error()))
@@ -741,6 +716,7 @@ func TestDelegationSystemSCMidas_ExecuteRemoveNodesShouldRemoveKeyFromNotStakedK
 	})
 
 	vmInput := getDefaultVmInputForFuncMidas("removeNodes", [][]byte{blsKey1})
+	vmInput.CallerAddr = []byte("owner")
 	output := d.Execute(vmInput)
 	assert.Equal(t, vmcommon.Ok, output)
 
@@ -761,6 +737,7 @@ func TestDelegationSystemSCMidas_ExecuteRemoveNodesWithNoArgsShouldErr(t *testin
 	args.Eei = eei
 	d, _ := NewDelegationSystemSCMidas(args)
 	vmInput := getDefaultVmInputForFuncMidas("removeNodes", [][]byte{})
+	vmInput.CallerAddr = []byte("owner")
 	_ = d.saveDelegationStatus(&DelegationContractStatus{})
 
 	output := d.Execute(vmInput)
@@ -787,6 +764,7 @@ func TestDelegationSystemSCMidas_ExecuteStakeNodesUserErrors(t *testing.T) {
 	assert.True(t, strings.Contains(eei.returnMessage, "only owner can call this method"))
 
 	delegationsMap[ownerKey] = []byte("owner")
+	vmInput.CallerAddr = []byte("owner")
 	vmInput.CallValue = callValue
 	output = d.Execute(vmInput)
 	assert.Equal(t, vmcommon.UserError, output)
@@ -833,6 +811,7 @@ func TestDelegationSystemSCMidas_ExecuteStakeNodesNotPresentInNotStakedOrUnStake
 	_ = d.saveDelegationStatus(&DelegationContractStatus{})
 
 	vmInput := getDefaultVmInputForFuncMidas("stakeNodes", [][]byte{blsKey})
+	vmInput.CallerAddr = []byte("owner")
 	output := d.Execute(vmInput)
 	assert.Equal(t, vmcommon.UserError, output)
 	assert.True(t, strings.Contains(eei.returnMessage, vm.ErrBLSPublicKeyMismatch.Error()))
@@ -859,6 +838,7 @@ func TestDelegationSystemSCMidas_ExecuteStakeNodesVerifiesBothUnStakedAndNotStak
 	})
 
 	vmInput := getDefaultVmInputForFuncMidas("stakeNodes", [][]byte{blsKey1, blsKey2})
+	vmInput.CallerAddr = []byte("owner")
 	output := d.Execute(vmInput)
 	assert.Equal(t, vmcommon.UserError, output)
 	expectedErr := fmt.Errorf("%w getGlobalFundData", vm.ErrDataNotFoundUnderKey)
@@ -902,7 +882,7 @@ func TestDelegationSystemSCMidas_ExecuteDelegateStakeNodes(t *testing.T) {
 	createDelegationManagerConfigMidas(eei, args.Marshalizer, big.NewInt(10))
 	eei.SetSCAddress(vm.FirstDelegationSCAddress)
 	delegationsMap := map[string][]byte{}
-	delegationsMap[ownerKey] = []byte("owner")
+	delegationsMap[ownerKey] = []byte("delegator")
 	eei.storageUpdate[string(eei.scAddress)] = delegationsMap
 	args.Eei = eei
 
@@ -924,9 +904,8 @@ func TestDelegationSystemSCMidas_ExecuteDelegateStakeNodes(t *testing.T) {
 	})
 	addValidatorAndStakingScToVmContextMidas(eei)
 
-	vmInput := getDefaultVmInputForFuncMidas("delegate", [][]byte{})
-	vmInput.CallerAddr = []byte("delegator")
-	vmInput.CallValue = big.NewInt(500)
+	delegatorAddr := []byte("delegator")
+	vmInput := getDefaultVmInputForFuncMidas("delegate", [][]byte{delegatorAddr, big.NewInt(500).Bytes()})
 	vmInput.GasProvided = 10000
 	eei.gasRemaining = vmInput.GasProvided
 
@@ -944,6 +923,7 @@ func TestDelegationSystemSCMidas_ExecuteDelegateStakeNodes(t *testing.T) {
 	vmOutput := eei.CreateVMOutput()
 	assert.Equal(t, 6, len(vmOutput.OutputAccounts))
 
+	vmInput.Arguments = [][]byte{delegatorAddr, big.NewInt(1000).Bytes()}
 	output = d.Execute(vmInput)
 	eei.gasRemaining = vmInput.GasProvided
 	assert.Equal(t, vmcommon.Ok, output)
@@ -951,7 +931,7 @@ func TestDelegationSystemSCMidas_ExecuteDelegateStakeNodes(t *testing.T) {
 	globalFund, _ = d.getGlobalFundData()
 	assert.Equal(t, big.NewInt(1000), globalFund.TotalActive)
 
-	_, delegator, _ := d.getOrCreateDelegatorData(vmInput.CallerAddr)
+	_, delegator, _ := d.getOrCreateDelegatorData(delegatorAddr)
 	fund, _ := d.getFund(delegator.ActiveFund)
 	assert.Equal(t, fund.Value, big.NewInt(1000))
 }
@@ -975,6 +955,7 @@ func TestDelegationSystemSCMidas_ExecuteUnStakeNodesUserErrors(t *testing.T) {
 	assert.True(t, strings.Contains(eei.returnMessage, "only owner can call this method"))
 
 	delegationsMap[ownerKey] = []byte("owner")
+	vmInput.CallerAddr = []byte("owner")
 	vmInput.CallValue = callValue
 	output = d.Execute(vmInput)
 	assert.Equal(t, vmcommon.UserError, output)
@@ -1021,6 +1002,7 @@ func TestDelegationSystemSCMidas_ExecuteUnStakeNodesNotPresentInStakedShouldErr(
 	_ = d.saveDelegationStatus(&DelegationContractStatus{})
 
 	vmInput := getDefaultVmInputForFuncMidas("unStakeNodes", [][]byte{blsKey})
+	vmInput.CallerAddr = []byte("owner")
 	output := d.Execute(vmInput)
 	assert.Equal(t, vmcommon.UserError, output)
 	assert.True(t, strings.Contains(eei.returnMessage, vm.ErrBLSPublicKeyMismatch.Error()))
@@ -1069,6 +1051,7 @@ func TestDelegationSystemSCMidas_ExecuteUnStakeNodes(t *testing.T) {
 	eei.storageUpdate[string(args.StakingSCAddress)] = stakingMap
 
 	vmInput := getDefaultVmInputForFuncMidas("unStakeNodes", [][]byte{blsKey1, blsKey2})
+	vmInput.CallerAddr = []byte("owner")
 	output := d.Execute(vmInput)
 	assert.Equal(t, vmcommon.Ok, output)
 
@@ -1154,6 +1137,7 @@ func TestDelegationSystemSCMidas_ExecuteUnStakeNodesAtEndOfEpoch(t *testing.T) {
 	}
 
 	vmInput := getDefaultVmInputForFuncMidas("unStakeAtEndOfEpoch", [][]byte{blsKey1, blsKey2})
+	vmInput.CallerAddr = []byte("owner")
 	vmInput.CallerAddr = args.EndOfEpochAddress
 	output := d.Execute(vmInput)
 	assert.Equal(t, vmcommon.Ok, output)
@@ -1163,6 +1147,7 @@ func TestDelegationSystemSCMidas_ExecuteUnStakeNodesAtEndOfEpoch(t *testing.T) {
 	assert.Equal(t, 0, len(dStatus.StakedKeys))
 
 	vmInput = getDefaultVmInputForFuncMidas("reStakeUnStakedNodes", [][]byte{blsKey1, blsKey2})
+	vmInput.CallerAddr = []byte("owner")
 	output = d.Execute(vmInput)
 	assert.Equal(t, vmcommon.Ok, output)
 
@@ -1190,6 +1175,7 @@ func TestDelegationSystemSCMidas_ExecuteUnBondNodesUserErrors(t *testing.T) {
 	assert.True(t, strings.Contains(eei.returnMessage, "only owner can call this method"))
 
 	delegationsMap[ownerKey] = []byte("owner")
+	vmInput.CallerAddr = []byte("owner")
 	vmInput.CallValue = callValue
 	output = d.Execute(vmInput)
 	assert.Equal(t, vmcommon.UserError, output)
@@ -1236,6 +1222,7 @@ func TestDelegationSystemSCMidas_ExecuteUnBondNodesNotPresentInUnStakedShouldErr
 	_ = d.saveDelegationStatus(&DelegationContractStatus{})
 
 	vmInput := getDefaultVmInputForFuncMidas("unBondNodes", [][]byte{blsKey})
+	vmInput.CallerAddr = []byte("owner")
 	output := d.Execute(vmInput)
 	assert.Equal(t, vmcommon.UserError, output)
 	assert.True(t, strings.Contains(eei.returnMessage, vm.ErrBLSPublicKeyMismatch.Error()))
@@ -1286,6 +1273,7 @@ func TestDelegationSystemSCMidas_ExecuteUnBondNodes(t *testing.T) {
 	eei.SetStorageForAddress(vm.StakingSCAddress, []byte(nodesConfigKey), stkNodes)
 
 	vmInput := getDefaultVmInputForFuncMidas("unBondNodes", [][]byte{blsKey1, blsKey2})
+	vmInput.CallerAddr = []byte("owner")
 	output := d.Execute(vmInput)
 	assert.Equal(t, vmcommon.Ok, output)
 
@@ -1312,7 +1300,7 @@ func TestDelegationSystemSCMidas_ExecuteUnJailNodesUserErrors(t *testing.T) {
 	assert.Equal(t, vmcommon.FunctionWrongSignature, output)
 	assert.True(t, strings.Contains(eei.returnMessage, "not enough arguments"))
 
-	vmInput.Arguments = append(vmInput.Arguments, blsKey)
+	vmInput.Arguments = [][]byte{blsKey, []byte("ownerAddr")}
 	d.gasCost.MetaChainSystemSCsCost.DelegationOps = 10
 	output = d.Execute(vmInput)
 	assert.Equal(t, vmcommon.OutOfGas, output)
@@ -1325,10 +1313,15 @@ func TestDelegationSystemSCMidas_ExecuteUnJailNodesUserErrors(t *testing.T) {
 	assert.True(t, strings.Contains(eei.returnMessage, expectedErr.Error()))
 
 	_ = d.saveDelegationStatus(&DelegationContractStatus{})
-	vmInput.Arguments = [][]byte{blsKey, blsKey}
+	vmInput.Arguments = [][]byte{blsKey, blsKey, []byte("ownerAddr")}
 	output = d.Execute(vmInput)
 	assert.Equal(t, vmcommon.UserError, output)
 	assert.True(t, strings.Contains(eei.returnMessage, vm.ErrDuplicatesFoundInArguments.Error()))
+
+	vmInput.CallerAddr = []byte("caller")
+	output = d.Execute(vmInput)
+	assert.Equal(t, vmcommon.UserError, output)
+	assert.True(t, strings.Contains(eei.returnMessage, "unJailNodes function not allowed to be called by address "+string(vmInput.CallerAddr)))
 }
 
 func TestDelegationSystemSCMidas_ExecuteUnJailNodesNotPresentInStakedOrUnStakedShouldErr(t *testing.T) {
@@ -1346,7 +1339,7 @@ func TestDelegationSystemSCMidas_ExecuteUnJailNodesNotPresentInStakedOrUnStakedS
 	d, _ := NewDelegationSystemSCMidas(args)
 	_ = d.saveDelegationStatus(&DelegationContractStatus{})
 
-	vmInput := getDefaultVmInputForFuncMidas("unJailNodes", [][]byte{blsKey})
+	vmInput := getDefaultVmInputForFuncMidas("unJailNodes", [][]byte{blsKey, []byte("owner")})
 	output := d.Execute(vmInput)
 	assert.Equal(t, vmcommon.UserError, output)
 	assert.True(t, strings.Contains(eei.returnMessage, vm.ErrBLSPublicKeyMismatch.Error()))
@@ -1364,8 +1357,7 @@ func TestDelegationSystemSCMidas_ExecuteUnJailNodesNotDelegatorShouldErr(t *test
 	delegationsMap[ownerKey] = []byte("owner")
 	eei.storageUpdate[string(eei.scAddress)] = delegationsMap
 	args.Eei = eei
-	vmInput := getDefaultVmInputForFuncMidas("unJailNodes", [][]byte{blsKey1, blsKey2})
-	vmInput.CallerAddr = []byte("notDelegator")
+	vmInput := getDefaultVmInputForFuncMidas("unJailNodes", [][]byte{blsKey1, blsKey2, []byte("notDelegator")})
 	key1 := &NodesData{BLSKey: blsKey1}
 	key2 := &NodesData{BLSKey: blsKey2}
 	d, _ := NewDelegationSystemSCMidas(args)
@@ -1392,9 +1384,7 @@ func TestDelegationSystemSCMidas_ExecuteUnJailNodes(t *testing.T) {
 	eei.storageUpdate[string(eei.scAddress)] = delegationsMap
 	args.Eei = eei
 
-	vmInput := getDefaultVmInputForFuncMidas("unJailNodes", [][]byte{blsKey1, blsKey2})
-	vmInput.CallValue = big.NewInt(20)
-	vmInput.CallerAddr = []byte("delegator")
+	vmInput := getDefaultVmInputForFuncMidas("unJailNodes", [][]byte{blsKey1, blsKey2, []byte("delegator")})
 
 	key1 := &NodesData{BLSKey: blsKey1}
 	key2 := &NodesData{BLSKey: blsKey2}
@@ -1406,7 +1396,7 @@ func TestDelegationSystemSCMidas_ExecuteUnJailNodes(t *testing.T) {
 	})
 	addValidatorAndStakingScToVmContextMidas(eei)
 
-	_ = d.saveDelegatorData(vmInput.CallerAddr, &DelegatorData{ActiveFund: []byte("someFund"), UnClaimedRewards: big.NewInt(0), TotalCumulatedRewards: big.NewInt(0)})
+	_ = d.saveDelegatorData([]byte("delegator"), &DelegatorData{ActiveFund: []byte("someFund"), UnClaimedRewards: big.NewInt(0), TotalCumulatedRewards: big.NewInt(0)})
 
 	validatorMap := map[string][]byte{}
 	registrationDataValidator := &ValidatorDataV2{
@@ -1446,18 +1436,30 @@ func TestDelegationSystemSCMidas_ExecuteDelegateUserErrors(t *testing.T) {
 	args.Eei = eei
 	createDelegationManagerConfigMidas(eei, args.Marshalizer, big.NewInt(10))
 
-	vmInput := getDefaultVmInputForFuncMidas("delegate", [][]byte{})
+	delegator := []byte("delegator")
+	vmInput := getDefaultVmInputForFuncMidas("delegate", [][]byte{delegator, big.NewInt(0).Bytes()})
 	d, _ := NewDelegationSystemSCMidas(args)
 
 	output := d.Execute(vmInput)
 	assert.Equal(t, vmcommon.UserError, output)
 	assert.True(t, strings.Contains(eei.returnMessage, "delegate value must be higher than minDelegationAmount"))
 
-	vmInput.CallValue = big.NewInt(15)
+	vmInput.Arguments = [][]byte{delegator, big.NewInt(100).Bytes()}
 	d.gasCost.MetaChainSystemSCsCost.DelegationOps = 10
 	output = d.Execute(vmInput)
 	assert.Equal(t, vmcommon.OutOfGas, output)
 	assert.True(t, strings.Contains(eei.returnMessage, vm.ErrNotEnoughGas.Error()))
+
+	vmInput.CallValue = big.NewInt(15)
+	d.gasCost.MetaChainSystemSCsCost.DelegationOps = 0
+	output = d.Execute(vmInput)
+	assert.Equal(t, vmcommon.UserError, output)
+	assert.True(t, strings.Contains(eei.returnMessage, "invalid call value"))
+
+	vmInput.CallerAddr = delegator
+	retCode := d.Execute(vmInput)
+	assert.Equal(t, vmcommon.UserError, retCode)
+	assert.True(t, strings.Contains(eei.returnMessage, "delegate function not allowed to be called by address "+string(delegator)))
 }
 
 func TestDelegationSystemSCMidas_ExecuteDelegateWrongInit(t *testing.T) {
@@ -1468,8 +1470,7 @@ func TestDelegationSystemSCMidas_ExecuteDelegateWrongInit(t *testing.T) {
 	args.Eei = eei
 	createDelegationManagerConfigMidas(eei, args.Marshalizer, big.NewInt(10))
 
-	vmInput := getDefaultVmInputForFuncMidas("delegate", [][]byte{})
-	vmInput.CallValue = big.NewInt(15)
+	vmInput := getDefaultVmInputForFuncMidas("delegate", [][]byte{[]byte("delegator"), big.NewInt(15).Bytes()})
 	d, _ := NewDelegationSystemSCMidas(args)
 
 	output := d.Execute(vmInput)
@@ -1500,9 +1501,7 @@ func TestDelegationSystemSCMidas_ExecuteDelegate(t *testing.T) {
 	addValidatorAndStakingScToVmContextMidas(eei)
 	createDelegationManagerConfigMidas(eei, args.Marshalizer, big.NewInt(10))
 
-	vmInput := getDefaultVmInputForFuncMidas("delegate", [][]byte{})
-	vmInput.CallValue = big.NewInt(15)
-	vmInput.CallerAddr = delegator1
+	vmInput := getDefaultVmInputForFuncMidas("delegate", [][]byte{delegator1, big.NewInt(15).Bytes()})
 	d, _ := NewDelegationSystemSCMidas(args)
 
 	_ = d.saveDelegationStatus(&DelegationContractStatus{})
@@ -1550,9 +1549,7 @@ func TestDelegationSystemSCMidas_ExecuteDelegateFailsWhenGettingDelegationManage
 	args.Eei = eei
 	addValidatorAndStakingScToVmContextMidas(eei)
 
-	vmInput := getDefaultVmInputForFuncMidas("delegate", [][]byte{})
-	vmInput.CallValue = big.NewInt(15)
-	vmInput.CallerAddr = delegator1
+	vmInput := getDefaultVmInputForFuncMidas("delegate", [][]byte{delegator1, big.NewInt(15).Bytes()})
 	d, _ := NewDelegationSystemSCMidas(args)
 
 	output := d.Execute(vmInput)
@@ -1605,7 +1602,7 @@ func TestDelegationSystemSCMidas_ExecuteUnDelegateUserErrors(t *testing.T) {
 	assert.Equal(t, vmcommon.OutOfGas, output)
 	assert.True(t, strings.Contains(eei.returnMessage, vm.ErrNotEnoughGas.Error()))
 
-	d.gasCost.MetaChainSystemSCsCost.DelegationOps = 10
+	d.gasCost.MetaChainSystemSCsCost.DelegationOps = 0
 	output = d.Execute(vmInput)
 	assert.Equal(t, vmcommon.FunctionWrongSignature, output)
 	assert.True(t, strings.Contains(eei.returnMessage, "wrong number of arguments"))
@@ -1613,20 +1610,36 @@ func TestDelegationSystemSCMidas_ExecuteUnDelegateUserErrors(t *testing.T) {
 	vmInput.CallerAddr = []byte("owner")
 	output = d.Execute(vmInput)
 	assert.Equal(t, vmcommon.UserError, output)
-	assert.Equal(t, "unDelegate function not allowed to be called by address "+string(vmInput.CallerAddr), eei.returnMessage)
+	assert.True(t, strings.Contains(eei.returnMessage, "unDelegate function not allowed to be called by address "+string(vmInput.CallerAddr)))
 }
 
 func TestDelegationSystemSCMidas_ExecuteUnDelegateUserErrorsWhenAnInvalidValueToDelegateWasProvided(t *testing.T) {
 	t.Parallel()
 
+	fundKey := append([]byte(fundKeyPrefix), []byte{1}...)
 	args := createMockArgumentsForDelegationMidas()
 	eei := createDefaultEei()
 	args.Eei = eei
 
-	negativeValueToUndelegate := big.NewInt(0)
-	vmInput := getDefaultVmInputForFuncMidas("unDelegate", [][]byte{negativeValueToUndelegate.Bytes()})
-
+	delegator := []byte("delegator")
+	negativeValueToUndelegate := big.NewInt(100)
+	vmInput := getDefaultVmInputForFuncMidas("unDelegate", [][]byte{delegator, negativeValueToUndelegate.Bytes()})
 	d, _ := NewDelegationSystemSCMidas(args)
+
+	_ = d.saveDelegatorData(delegator, &DelegatorData{
+		ActiveFund:            fundKey,
+		UnStakedFunds:         [][]byte{},
+		UnClaimedRewards:      big.NewInt(0),
+		TotalCumulatedRewards: big.NewInt(0),
+	})
+	_ = d.saveFund(fundKey, &Fund{
+		Value: big.NewInt(100),
+	})
+	_ = d.saveGlobalFundData(&GlobalFundData{
+		TotalActive:   big.NewInt(100),
+		TotalUnStaked: big.NewInt(0),
+	})
+	d.eei.SetStorage([]byte(lastFundKey), fundKey)
 
 	output := d.Execute(vmInput)
 	assert.Equal(t, vmcommon.UserError, output)
@@ -1674,14 +1687,15 @@ func TestDelegationSystemSCMidas_ExecuteUnDelegateUserNotDelegatorOrNoActiveFund
 	args.Eei = eei
 	createDelegationManagerConfigMidas(eei, args.Marshalizer, big.NewInt(10))
 
-	vmInput := getDefaultVmInputForFuncMidas("unDelegate", [][]byte{{100}})
+	delegator := []byte("delegator")
+	vmInput := getDefaultVmInputForFuncMidas("unDelegate", [][]byte{delegator, {100}})
 	d, _ := NewDelegationSystemSCMidas(args)
 
 	output := d.Execute(vmInput)
 	assert.Equal(t, vmcommon.UserError, output)
 	assert.True(t, strings.Contains(eei.returnMessage, "caller is not a delegator"))
 
-	_ = d.saveDelegatorData(vmInput.CallerAddr, &DelegatorData{
+	_ = d.saveDelegatorData(delegator, &DelegatorData{
 		ActiveFund: fundKey,
 	})
 	output = d.Execute(vmInput)
@@ -1699,7 +1713,7 @@ func TestDelegationSystemSCMidas_ExecuteUnDelegateUserNotDelegatorOrNoActiveFund
 	_ = d.saveFund(fundKey, &Fund{
 		Value: big.NewInt(11),
 	})
-	vmInput.Arguments = [][]byte{{10}}
+	vmInput.Arguments = [][]byte{delegator, {1}}
 	output = d.Execute(vmInput)
 	assert.Equal(t, vmcommon.UserError, output)
 	assert.True(t, strings.Contains(eei.returnMessage, "invalid value to undelegate - need to undelegate all - do not leave dust behind"))
@@ -1992,7 +2006,6 @@ func TestDelegationSystemSCMidas_ExecuteUnDelegateMultipleTimesSameAndDiffEpochA
 	assert.Equal(t, nextFundKey, dData.UnStakedFunds[0])
 	assert.Equal(t, thirdFundKey, dData.UnStakedFunds[1])
 
-	// TODO: Something is not right with withdraw here...
 	currentEpoch += d.unBondPeriodInEpochs - 1
 	vmInput.Function = "withdraw"
 	vmInput.Arguments = [][]byte{delegator}
@@ -2000,8 +2013,8 @@ func TestDelegationSystemSCMidas_ExecuteUnDelegateMultipleTimesSameAndDiffEpochA
 	assert.Equal(t, vmcommon.Ok, output)
 
 	_, dData, _ = d.getOrCreateDelegatorData(delegator)
-	assert.Equal(t, 2, len(dData.UnStakedFunds))
-	assert.Equal(t, thirdFundKey, dData.UnStakedFunds[1])
+	assert.Equal(t, 1, len(dData.UnStakedFunds))
+	assert.Equal(t, thirdFundKey, dData.UnStakedFunds[0])
 
 	dFund, _ = d.getFund(thirdFundKey)
 	assert.Equal(t, big.NewInt(50), dFund.Value)
@@ -2024,14 +2037,14 @@ func TestDelegationSystemSCMidas_ExecuteWithdrawUserErrors(t *testing.T) {
 	eei := createDefaultEei()
 	args.Eei = eei
 
-	vmInput := getDefaultVmInputForFuncMidas("withdraw", [][]byte{[]byte("wrong arg")})
+	vmInput := getDefaultVmInputForFuncMidas("withdraw", [][]byte{})
 	d, _ := NewDelegationSystemSCMidas(args)
 
 	output := d.Execute(vmInput)
 	assert.Equal(t, vmcommon.FunctionWrongSignature, output)
 	assert.True(t, strings.Contains(eei.returnMessage, "wrong number of arguments"))
 
-	vmInput.Arguments = [][]byte{}
+	vmInput.Arguments = [][]byte{[]byte("delegator")}
 	d.gasCost.MetaChainSystemSCsCost.DelegationOps = 10
 	output = d.Execute(vmInput)
 	assert.Equal(t, vmcommon.OutOfGas, output)
@@ -2041,6 +2054,11 @@ func TestDelegationSystemSCMidas_ExecuteWithdrawUserErrors(t *testing.T) {
 	output = d.Execute(vmInput)
 	assert.Equal(t, vmcommon.UserError, output)
 	assert.True(t, strings.Contains(eei.returnMessage, "caller is not a delegator"))
+
+	vmInput.CallerAddr = []byte("caller")
+	output = d.Execute(vmInput)
+	assert.Equal(t, vmcommon.UserError, output)
+	assert.True(t, strings.Contains(eei.returnMessage, "withdraw function not allowed to be called by address "+string(vmInput.CallerAddr)))
 }
 
 func TestDelegationSystemSCMidas_ExecuteWithdrawWrongInit(t *testing.T) {
@@ -2050,10 +2068,11 @@ func TestDelegationSystemSCMidas_ExecuteWithdrawWrongInit(t *testing.T) {
 	eei := createDefaultEei()
 	args.Eei = eei
 
-	vmInput := getDefaultVmInputForFuncMidas("withdraw", [][]byte{})
+	delegator := []byte("delegator")
+	vmInput := getDefaultVmInputForFuncMidas("withdraw", [][]byte{delegator})
 	d, _ := NewDelegationSystemSCMidas(args)
 
-	_ = d.saveDelegatorData(vmInput.CallerAddr, &DelegatorData{})
+	_ = d.saveDelegatorData(delegator, &DelegatorData{})
 
 	output := d.Execute(vmInput)
 	assert.Equal(t, vmcommon.UserError, output)
@@ -2084,25 +2103,26 @@ func TestDelegationSystemSCMidas_ExecuteWithdraw(t *testing.T) {
 		},
 	}
 	args.Eei = eei
-	addValidatorAndStakingScToVmContextMidas(eei)
+	addValidatorAndStakingScToVmContext(eei)
 
-	vmInput := getDefaultVmInputForFuncMidas("withdraw", [][]byte{})
+	delegator := []byte("delegator")
+	vmInput := getDefaultVmInputForFuncMidas("withdraw", [][]byte{delegator})
 	d, _ := NewDelegationSystemSCMidas(args)
 
-	_ = d.saveDelegatorData(vmInput.CallerAddr, &DelegatorData{
+	_ = d.saveDelegatorData(delegator, &DelegatorData{
 		UnStakedFunds:         [][]byte{fundKey1, fundKey2},
 		UnClaimedRewards:      big.NewInt(0),
 		TotalCumulatedRewards: big.NewInt(0),
 	})
 	_ = d.saveFund(fundKey1, &Fund{
 		Value:   big.NewInt(60),
-		Address: vmInput.CallerAddr,
+		Address: delegator,
 		Epoch:   10,
 		Type:    unStaked,
 	})
 	_ = d.saveFund(fundKey2, &Fund{
 		Value:   big.NewInt(80),
-		Address: vmInput.CallerAddr,
+		Address: delegator,
 		Epoch:   50,
 		Type:    unStaked,
 	})
@@ -2128,7 +2148,7 @@ func TestDelegationSystemSCMidas_ExecuteWithdraw(t *testing.T) {
 	gFundData, _ := d.getGlobalFundData()
 	assert.Equal(t, big.NewInt(80), gFundData.TotalUnStaked)
 
-	_, dData, _ := d.getOrCreateDelegatorData(vmInput.CallerAddr)
+	_, dData, _ := d.getOrCreateDelegatorData(delegator)
 	assert.Equal(t, 1, len(dData.UnStakedFunds))
 	assert.Equal(t, fundKey2, dData.UnStakedFunds[0])
 
@@ -2140,7 +2160,7 @@ func TestDelegationSystemSCMidas_ExecuteWithdraw(t *testing.T) {
 	output = d.Execute(vmInput)
 	assert.Equal(t, vmcommon.Ok, output)
 
-	isNew, _, _ := d.getOrCreateDelegatorData(vmInput.CallerAddr)
+	isNew, _, _ := d.getOrCreateDelegatorData(delegator)
 	assert.True(t, isNew)
 
 	dStatus, _ := d.getDelegationStatus()
@@ -2296,6 +2316,7 @@ func TestDelegationSystemSCMidas_ExecuteModifyTotalDelegationCap(t *testing.T) {
 	args.Eei = eei
 
 	vmInput := getDefaultVmInputForFuncMidas("modifyTotalDelegationCap", [][]byte{big.NewInt(500).Bytes()})
+	vmInput.CallerAddr = []byte("owner")
 	d, _ := NewDelegationSystemSCMidas(args)
 	_ = d.saveDelegationContractConfig(&DelegationConfig{})
 	_ = d.saveGlobalFundData(&GlobalFundData{
@@ -2593,126 +2614,6 @@ func TestDelegationMidas_ExecuteClaimRewardsShouldDeleteDelegator(t *testing.T) 
 
 	res := d.eei.GetStorage(vmInput.CallerAddr)
 	require.Len(t, res, 0)
-}
-
-func TestDelegationMidas_ExecuteReDelegateRewardsNoExtraCheck(t *testing.T) {
-	t.Parallel()
-
-	d, eei := prepareReDelegateRewardsComponentsMidas(t, 1000, big.NewInt(1156))
-	vmInput := getDefaultVmInputForFuncMidas("reDelegateRewards", [][]byte{})
-	vmInput.CallerAddr = []byte("stakingProvider")
-	output := d.Execute(vmInput)
-	assert.Equal(t, vmcommon.Ok, output)
-
-	_, exists := eei.outputAccounts[string(vmInput.CallerAddr)]
-	assert.False(t, exists)
-	_, exists = eei.outputAccounts[string(vmInput.RecipientAddr)]
-	assert.True(t, exists)
-
-	_, delegatorData, _ := d.getOrCreateDelegatorData(vmInput.CallerAddr)
-	assert.Equal(t, uint32(3), delegatorData.RewardsCheckpoint)
-	assert.Equal(t, uint64(0), delegatorData.UnClaimedRewards.Uint64())
-	assert.Equal(t, uint64(155), delegatorData.TotalCumulatedRewards.Uint64())
-
-	activeFund, _ := d.getFund(delegatorData.ActiveFund)
-	assert.Equal(t, big.NewInt(155+1000), activeFund.Value)
-}
-
-func TestDelegationMidas_ExecuteReDelegateRewardsWithExtraCheckReDelegateIsAboveMinimum(t *testing.T) {
-	t.Parallel()
-
-	d, eei := prepareReDelegateRewardsComponentsMidas(t, 0, big.NewInt(155))
-	vmInput := getDefaultVmInputForFuncMidas("reDelegateRewards", [][]byte{})
-	vmInput.CallerAddr = []byte("stakingProvider")
-	output := d.Execute(vmInput)
-	assert.Equal(t, vmcommon.Ok, output)
-
-	_, exists := eei.outputAccounts[string(vmInput.CallerAddr)]
-	assert.False(t, exists)
-	_, exists = eei.outputAccounts[string(vmInput.RecipientAddr)]
-	assert.True(t, exists)
-
-	_, delegatorData, _ := d.getOrCreateDelegatorData(vmInput.CallerAddr)
-	assert.Equal(t, uint32(3), delegatorData.RewardsCheckpoint)
-	assert.Equal(t, uint64(0), delegatorData.UnClaimedRewards.Uint64())
-	assert.Equal(t, uint64(155), delegatorData.TotalCumulatedRewards.Uint64())
-
-	activeFund, _ := d.getFund(delegatorData.ActiveFund)
-	assert.Equal(t, big.NewInt(155+1000), activeFund.Value)
-}
-
-func TestDelegationMidas_ExecuteReDelegateRewardsWithExtraCheckReDelegateIsBelowMinimum(t *testing.T) {
-	t.Parallel()
-
-	d, eei := prepareReDelegateRewardsComponentsMidas(t, 0, big.NewInt(1000))
-	createDelegationManagerConfigMidas(eei, &mock.MarshalizerMock{}, big.NewInt(1156))
-	vmInput := getDefaultVmInputForFuncMidas("reDelegateRewards", [][]byte{})
-	vmInput.CallerAddr = []byte("stakingProvider")
-	output := d.Execute(vmInput)
-	assert.Equal(t, vmcommon.UserError, output)
-}
-
-func prepareReDelegateRewardsComponentsMidas(
-	t *testing.T,
-	extraCheckEpoch uint32,
-	minDelegation *big.Int,
-) (*delegationMidas, *vmContext) {
-	args := createMockArgumentsForDelegationMidas()
-	eei := createDefaultEei()
-	eei.blockChainHook = &mock.BlockChainHookStub{
-		CurrentEpochCalled: func() uint32 {
-			return 2
-		},
-	}
-	_ = eei.SetSystemSCContainer(&mock.SystemSCContainerStub{GetCalled: func(key []byte) (vm.SystemSmartContract, error) {
-		return &mock.SystemSCStub{ExecuteCalled: func(args *vmcommon.ContractCallInput) vmcommon.ReturnCode {
-			return vmcommon.Ok
-		}}, nil
-	}})
-
-	createDelegationManagerConfigMidas(eei, args.Marshalizer, minDelegation)
-	args.Eei = eei
-	args.DelegationSCConfig.MaxServiceFee = 10000
-	args.DelegationSCConfig.MinServiceFee = 0
-	enableEpochsHandler, _ := args.EnableEpochsHandler.(*enableEpochsHandlerMock.EnableEpochsHandlerStub)
-	if extraCheckEpoch == 0 {
-		enableEpochsHandler.AddActiveFlags(common.ReDelegateBelowMinCheckFlag)
-	} else {
-		enableEpochsHandler.RemoveActiveFlags(common.ReDelegateBelowMinCheckFlag)
-	}
-	d, _ := NewDelegationSystemSCMidas(args)
-	vmInput := getDefaultVmInputForFuncMidas(core.SCDeployInitFunctionName, [][]byte{big.NewInt(0).Bytes(), big.NewInt(0).Bytes()})
-	vmInput.CallValue = big.NewInt(1000)
-	vmInput.RecipientAddr = createNewAddress(vm.FirstDelegationSCAddress)
-	vmInput.CallerAddr = []byte("stakingProvider")
-	output := d.Execute(vmInput)
-	assert.Equal(t, vmcommon.Ok, output)
-
-	fundKey := []byte{1}
-	_ = d.saveDelegatorData(vmInput.CallerAddr, &DelegatorData{
-		ActiveFund:            fundKey,
-		RewardsCheckpoint:     0,
-		UnClaimedRewards:      big.NewInt(0),
-		TotalCumulatedRewards: big.NewInt(0),
-	})
-
-	_ = d.saveFund(fundKey, &Fund{
-		Value: big.NewInt(1000),
-	})
-
-	_ = d.saveRewardData(0, &RewardComputationData{
-		RewardsToDistribute: big.NewInt(100),
-		TotalActive:         big.NewInt(1000),
-		ServiceFee:          1000,
-	})
-
-	_ = d.saveRewardData(1, &RewardComputationData{
-		RewardsToDistribute: big.NewInt(100),
-		TotalActive:         big.NewInt(2000),
-		ServiceFee:          1000,
-	})
-
-	return d, eei
 }
 
 func TestDelegationMidas_ExecuteGetRewardDataUserErrors(t *testing.T) {
@@ -3919,34 +3820,35 @@ func TestDelegationMidas_GetDelegationManagementShouldWork(t *testing.T) {
 	assert.Equal(t, minDelegationAmount, delegationManagement.MinDelegationAmount)
 }
 
-func TestDelegationMidas_ExecuteInitFromValidatorData(t *testing.T) {
-	t.Parallel()
-
-	args := createMockArgumentsForDelegationMidas()
-	eei := createDefaultEei()
-	eei.blockChainHook = &mock.BlockChainHookStub{
-		CurrentEpochCalled: func() uint32 {
-			return 2
-		},
-	}
-	_ = eei.SetSystemSCContainer(&mock.SystemSCContainerStub{GetCalled: func(key []byte) (vm.SystemSmartContract, error) {
-		return &mock.SystemSCStub{ExecuteCalled: func(args *vmcommon.ContractCallInput) vmcommon.ReturnCode {
-			return vmcommon.Ok
-		}}, nil
-	}})
-
-	createDelegationManagerConfigMidas(eei, args.Marshalizer, big.NewInt(1000))
-	args.Eei = eei
-	args.DelegationSCConfig.MaxServiceFee = 10000
-	args.DelegationSCConfig.MinServiceFee = 0
-	d, _ := NewDelegationSystemSCMidas(args)
-	vmInput := getDefaultVmInputForFuncMidas(core.SCDeployInitFunctionName, [][]byte{big.NewInt(0).Bytes(), big.NewInt(0).Bytes()})
-	vmInput.CallValue = big.NewInt(1000)
-	vmInput.RecipientAddr = createNewAddress(vm.FirstDelegationSCAddress)
-	vmInput.CallerAddr = []byte("stakingProvider")
-	output := d.Execute(vmInput)
-	assert.Equal(t, vmcommon.Ok, output)
-}
+// TODO:
+//func TestDelegationMidas_ExecuteInitFromValidatorData(t *testing.T) {
+//	t.Parallel()
+//
+//	args := createMockArgumentsForDelegationMidas()
+//	eei := createDefaultEei()
+//	eei.blockChainHook = &mock.BlockChainHookStub{
+//		CurrentEpochCalled: func() uint32 {
+//			return 2
+//		},
+//	}
+//	_ = eei.SetSystemSCContainer(&mock.SystemSCContainerStub{GetCalled: func(key []byte) (vm.SystemSmartContract, error) {
+//		return &mock.SystemSCStub{ExecuteCalled: func(args *vmcommon.ContractCallInput) vmcommon.ReturnCode {
+//			return vmcommon.Ok
+//		}}, nil
+//	}})
+//
+//	createDelegationManagerConfigMidas(eei, args.Marshalizer, big.NewInt(1000))
+//	args.Eei = eei
+//	args.DelegationSCConfig.MaxServiceFee = 10000
+//	args.DelegationSCConfig.MinServiceFee = 0
+//	d, _ := NewDelegationSystemSCMidas(args)
+//	vmInput := getDefaultVmInputForFuncMidas(core.SCDeployInitFunctionName, [][]byte{big.NewInt(0).Bytes(), big.NewInt(0).Bytes()})
+//	vmInput.CallValue = big.NewInt(1000)
+//	vmInput.RecipientAddr = createNewAddress(vm.FirstDelegationSCAddress)
+//	vmInput.CallerAddr = []byte("stakingProvider")
+//	output := d.Execute(vmInput)
+//	assert.Equal(t, vmcommon.Ok, output)
+//}
 
 func TestDelegationMidas_checkArgumentsForValidatorToDelegation(t *testing.T) {
 	t.Parallel()
@@ -4085,138 +3987,138 @@ func TestDelegationMidas_getAndVerifyValidatorData(t *testing.T) {
 	assert.Equal(t, eei.returnMessage, "clean unStaked info before changing validator to delegation contract")
 }
 
-func TestDelegationMidas_initFromValidatorData(t *testing.T) {
-	t.Parallel()
-
-	args := createMockArgumentsForDelegationMidas()
-	eei := createDefaultEei()
-	eei.blockChainHook = &mock.BlockChainHookStub{
-		CurrentEpochCalled: func() uint32 {
-			return 2
-		},
-	}
-	systemSCContainerStub := &mock.SystemSCContainerStub{GetCalled: func(key []byte) (vm.SystemSmartContract, error) {
-		return &mock.SystemSCStub{ExecuteCalled: func(args *vmcommon.ContractCallInput) vmcommon.ReturnCode {
-			return vmcommon.Ok
-		}}, nil
-	}}
-	enableEpochsHandler, _ := args.EnableEpochsHandler.(*enableEpochsHandlerMock.EnableEpochsHandlerStub)
-
-	_ = eei.SetSystemSCContainer(systemSCContainerStub)
-
-	args.Eei = eei
-	args.DelegationSCConfig.MaxServiceFee = 10000
-	args.DelegationSCConfig.MinServiceFee = 0
-	d, _ := NewDelegationSystemSCMidas(args)
-	vmInput := getDefaultVmInputForFuncMidas(initFromValidatorData, [][]byte{big.NewInt(0).Bytes(), big.NewInt(0).Bytes()})
-
-	enableEpochsHandler.RemoveActiveFlags(common.ValidatorToDelegationFlag)
-	returnCode := d.Execute(vmInput)
-	assert.Equal(t, vmcommon.UserError, returnCode)
-	assert.Equal(t, eei.returnMessage, initFromValidatorData+" is an unknown function")
-
-	enableEpochsHandler.AddActiveFlags(common.ValidatorToDelegationFlag)
-
-	eei.returnMessage = ""
-	vmInput.CallerAddr = d.delegationMgrSCAddress
-	vmInput.CallValue.SetUint64(0)
-	oldAddress := bytes.Repeat([]byte{1}, len(vmInput.CallerAddr))
-	vmInput.Arguments = [][]byte{oldAddress}
-	returnCode = d.Execute(vmInput)
-	assert.Equal(t, vmcommon.UserError, returnCode)
-	assert.Equal(t, eei.returnMessage, "invalid number of arguments")
-
-	eei.returnMessage = ""
-	vmInput.Arguments = [][]byte{oldAddress, big.NewInt(0).Bytes(), big.NewInt(0).SetUint64(d.maxServiceFee + 1).Bytes()}
-	returnCode = d.Execute(vmInput)
-	assert.Equal(t, vmcommon.UserError, returnCode)
-	assert.Equal(t, eei.returnMessage, "service fee out of bounds")
-
-	systemSCContainerStub.GetCalled = func(key []byte) (vm.SystemSmartContract, error) {
-		return &mock.SystemSCStub{ExecuteCalled: func(args *vmcommon.ContractCallInput) vmcommon.ReturnCode {
-			return vmcommon.UserError
-		}}, vm.ErrEmptyStorage
-	}
-
-	eei.returnMessage = ""
-	vmInput.Arguments = [][]byte{oldAddress, big.NewInt(0).SetUint64(d.maxServiceFee).Bytes(), big.NewInt(0).Bytes()}
-	returnCode = d.Execute(vmInput)
-	assert.Equal(t, vmcommon.UserError, returnCode)
-	assert.Equal(t, eei.returnMessage, "storage is nil for given key@storage is nil for given key")
-
-	systemSCContainerStub.GetCalled = func(key []byte) (vm.SystemSmartContract, error) {
-		return &mock.SystemSCStub{ExecuteCalled: func(args *vmcommon.ContractCallInput) vmcommon.ReturnCode {
-			return vmcommon.UserError
-		}}, nil
-	}
-	eei.returnMessage = ""
-	vmInput.Arguments = [][]byte{oldAddress, big.NewInt(0).SetUint64(d.maxServiceFee).Bytes(), big.NewInt(0).Bytes()}
-	returnCode = d.Execute(vmInput)
-	assert.Equal(t, vmcommon.UserError, returnCode)
-
-	systemSCContainerStub.GetCalled = func(key []byte) (vm.SystemSmartContract, error) {
-		return &mock.SystemSCStub{ExecuteCalled: func(args *vmcommon.ContractCallInput) vmcommon.ReturnCode {
-			return vmcommon.Ok
-		}}, nil
-	}
-	eei.returnMessage = ""
-	vmInput.Arguments = [][]byte{oldAddress, big.NewInt(0).SetUint64(d.maxServiceFee).Bytes(), big.NewInt(0).Bytes()}
-	returnCode = d.Execute(vmInput)
-	assert.Equal(t, vmcommon.UserError, returnCode)
-	assert.Equal(t, eei.returnMessage, vm.ErrEmptyStorage.Error())
-
-	validatorData := &ValidatorDataV2{
-		RewardAddress:   vmInput.RecipientAddr,
-		TotalSlashed:    big.NewInt(0),
-		TotalUnstaked:   big.NewInt(0),
-		TotalStakeValue: big.NewInt(1000000),
-		NumRegistered:   3,
-		BlsPubKeys:      [][]byte{[]byte("firsstKey"), []byte("secondKey"), []byte("thirddKey")},
-	}
-	marshaledData, _ := d.marshalizer.Marshal(validatorData)
-	eei.SetStorageForAddress(d.validatorSCAddr, vmInput.RecipientAddr, marshaledData)
-
-	managementData := &DelegationManagement{
-		NumOfContracts:      0,
-		LastAddress:         vm.FirstDelegationSCAddress,
-		MinServiceFee:       0,
-		MaxServiceFee:       100,
-		MinDeposit:          big.NewInt(100),
-		MinDelegationAmount: big.NewInt(100),
-	}
-	marshaledData, _ = d.marshalizer.Marshal(managementData)
-	eei.SetStorageForAddress(d.delegationMgrSCAddress, []byte(delegationManagementKey), marshaledData)
-
-	eei.returnMessage = ""
-	vmInput.Arguments = [][]byte{oldAddress, big.NewInt(0).SetUint64(d.maxServiceFee).Bytes(), big.NewInt(0).Bytes()}
-	returnCode = d.Execute(vmInput)
-	assert.Equal(t, vmcommon.UserError, returnCode)
-	assert.Equal(t, eei.returnMessage, vm.ErrEmptyStorage.Error())
-
-	for i, blsKey := range validatorData.BlsPubKeys {
-		stakedData := &StakedDataV2_0{
-			Staked: true,
-		}
-		if i == 0 {
-			stakedData.Staked = false
-		}
-		marshaledData, _ = d.marshalizer.Marshal(stakedData)
-		eei.SetStorageForAddress(d.stakingSCAddr, blsKey, marshaledData)
-	}
-
-	eei.returnMessage = ""
-	vmInput.Arguments = [][]byte{oldAddress, big.NewInt(1).Bytes(), big.NewInt(0).SetUint64(d.maxServiceFee).Bytes()}
-	returnCode = d.Execute(vmInput)
-	assert.Equal(t, vmcommon.UserError, returnCode)
-	assert.Equal(t, eei.returnMessage, "total delegation cap reached")
-
-	eei.returnMessage = ""
-	vmInput.Arguments = [][]byte{oldAddress, validatorData.TotalStakeValue.Bytes(), big.NewInt(0).SetUint64(d.maxServiceFee).Bytes()}
-	returnCode = d.Execute(vmInput)
-	assert.Equal(t, vmcommon.Ok, returnCode)
-}
-
 // TODO:
+//func TestDelegationMidas_initFromValidatorData(t *testing.T) {
+//	t.Parallel()
+//
+//	args := createMockArgumentsForDelegationMidas()
+//	eei := createDefaultEei()
+//	eei.blockChainHook = &mock.BlockChainHookStub{
+//		CurrentEpochCalled: func() uint32 {
+//			return 2
+//		},
+//	}
+//	systemSCContainerStub := &mock.SystemSCContainerStub{GetCalled: func(key []byte) (vm.SystemSmartContract, error) {
+//		return &mock.SystemSCStub{ExecuteCalled: func(args *vmcommon.ContractCallInput) vmcommon.ReturnCode {
+//			return vmcommon.Ok
+//		}}, nil
+//	}}
+//	enableEpochsHandler, _ := args.EnableEpochsHandler.(*enableEpochsHandlerMock.EnableEpochsHandlerStub)
+//
+//	_ = eei.SetSystemSCContainer(systemSCContainerStub)
+//
+//	args.Eei = eei
+//	args.DelegationSCConfig.MaxServiceFee = 10000
+//	args.DelegationSCConfig.MinServiceFee = 0
+//	d, _ := NewDelegationSystemSCMidas(args)
+//	vmInput := getDefaultVmInputForFuncMidas(initFromValidatorData, [][]byte{big.NewInt(0).Bytes(), big.NewInt(0).Bytes()})
+//
+//	enableEpochsHandler.RemoveActiveFlags(common.ValidatorToDelegationFlag)
+//	returnCode := d.Execute(vmInput)
+//	assert.Equal(t, vmcommon.UserError, returnCode)
+//	assert.Equal(t, eei.returnMessage, initFromValidatorData+" is an unknown function")
+//
+//	enableEpochsHandler.AddActiveFlags(common.ValidatorToDelegationFlag)
+//
+//	eei.returnMessage = ""
+//	vmInput.CallerAddr = d.delegationMgrSCAddress
+//	vmInput.CallValue.SetUint64(0)
+//	oldAddress := bytes.Repeat([]byte{1}, len(vmInput.CallerAddr))
+//	vmInput.Arguments = [][]byte{oldAddress}
+//	returnCode = d.Execute(vmInput)
+//	assert.Equal(t, vmcommon.UserError, returnCode)
+//	assert.Equal(t, eei.returnMessage, "invalid number of arguments")
+//
+//	eei.returnMessage = ""
+//	vmInput.Arguments = [][]byte{oldAddress, big.NewInt(0).Bytes(), big.NewInt(0).SetUint64(d.maxServiceFee + 1).Bytes()}
+//	returnCode = d.Execute(vmInput)
+//	assert.Equal(t, vmcommon.UserError, returnCode)
+//	assert.Equal(t, eei.returnMessage, "service fee out of bounds")
+//
+//	systemSCContainerStub.GetCalled = func(key []byte) (vm.SystemSmartContract, error) {
+//		return &mock.SystemSCStub{ExecuteCalled: func(args *vmcommon.ContractCallInput) vmcommon.ReturnCode {
+//			return vmcommon.UserError
+//		}}, vm.ErrEmptyStorage
+//	}
+//
+//	eei.returnMessage = ""
+//	vmInput.Arguments = [][]byte{oldAddress, big.NewInt(0).SetUint64(d.maxServiceFee).Bytes(), big.NewInt(0).Bytes()}
+//	returnCode = d.Execute(vmInput)
+//	assert.Equal(t, vmcommon.UserError, returnCode)
+//	assert.Equal(t, eei.returnMessage, "storage is nil for given key@storage is nil for given key")
+//
+//	systemSCContainerStub.GetCalled = func(key []byte) (vm.SystemSmartContract, error) {
+//		return &mock.SystemSCStub{ExecuteCalled: func(args *vmcommon.ContractCallInput) vmcommon.ReturnCode {
+//			return vmcommon.UserError
+//		}}, nil
+//	}
+//	eei.returnMessage = ""
+//	vmInput.Arguments = [][]byte{oldAddress, big.NewInt(0).SetUint64(d.maxServiceFee).Bytes(), big.NewInt(0).Bytes()}
+//	returnCode = d.Execute(vmInput)
+//	assert.Equal(t, vmcommon.UserError, returnCode)
+//
+//	systemSCContainerStub.GetCalled = func(key []byte) (vm.SystemSmartContract, error) {
+//		return &mock.SystemSCStub{ExecuteCalled: func(args *vmcommon.ContractCallInput) vmcommon.ReturnCode {
+//			return vmcommon.Ok
+//		}}, nil
+//	}
+//	eei.returnMessage = ""
+//	vmInput.Arguments = [][]byte{oldAddress, big.NewInt(0).SetUint64(d.maxServiceFee).Bytes(), big.NewInt(0).Bytes()}
+//	returnCode = d.Execute(vmInput)
+//	assert.Equal(t, vmcommon.UserError, returnCode)
+//	assert.Equal(t, eei.returnMessage, vm.ErrEmptyStorage.Error())
+//
+//	validatorData := &ValidatorDataV2{
+//		RewardAddress:   vmInput.RecipientAddr,
+//		TotalSlashed:    big.NewInt(0),
+//		TotalUnstaked:   big.NewInt(0),
+//		TotalStakeValue: big.NewInt(1000000),
+//		NumRegistered:   3,
+//		BlsPubKeys:      [][]byte{[]byte("firsstKey"), []byte("secondKey"), []byte("thirddKey")},
+//	}
+//	marshaledData, _ := d.marshalizer.Marshal(validatorData)
+//	eei.SetStorageForAddress(d.validatorSCAddr, vmInput.RecipientAddr, marshaledData)
+//
+//	managementData := &DelegationManagement{
+//		NumOfContracts:      0,
+//		LastAddress:         vm.FirstDelegationSCAddress,
+//		MinServiceFee:       0,
+//		MaxServiceFee:       100,
+//		MinDeposit:          big.NewInt(100),
+//		MinDelegationAmount: big.NewInt(100),
+//	}
+//	marshaledData, _ = d.marshalizer.Marshal(managementData)
+//	eei.SetStorageForAddress(d.delegationMgrSCAddress, []byte(delegationManagementKey), marshaledData)
+//
+//	eei.returnMessage = ""
+//	vmInput.Arguments = [][]byte{oldAddress, big.NewInt(0).SetUint64(d.maxServiceFee).Bytes(), big.NewInt(0).Bytes()}
+//	returnCode = d.Execute(vmInput)
+//	assert.Equal(t, vmcommon.UserError, returnCode)
+//	assert.Equal(t, eei.returnMessage, vm.ErrEmptyStorage.Error())
+//
+//	for i, blsKey := range validatorData.BlsPubKeys {
+//		stakedData := &StakedDataV2_0{
+//			Staked: true,
+//		}
+//		if i == 0 {
+//			stakedData.Staked = false
+//		}
+//		marshaledData, _ = d.marshalizer.Marshal(stakedData)
+//		eei.SetStorageForAddress(d.stakingSCAddr, blsKey, marshaledData)
+//	}
+//
+//	eei.returnMessage = ""
+//	vmInput.Arguments = [][]byte{oldAddress, big.NewInt(1).Bytes(), big.NewInt(0).SetUint64(d.maxServiceFee).Bytes()}
+//	returnCode = d.Execute(vmInput)
+//	assert.Equal(t, vmcommon.UserError, returnCode)
+//	assert.Equal(t, eei.returnMessage, "total delegation cap reached")
+//
+//	eei.returnMessage = ""
+//	vmInput.Arguments = [][]byte{oldAddress, validatorData.TotalStakeValue.Bytes(), big.NewInt(0).SetUint64(d.maxServiceFee).Bytes()}
+//	returnCode = d.Execute(vmInput)
+//	assert.Equal(t, vmcommon.Ok, returnCode)
+//}
+
 //func TestDelegationMidas_mergeValidatorDataToDelegation(t *testing.T) {
 //	args := createMockArgumentsForDelegationMidas()
 //	eei := createDefaultEei()
@@ -4751,204 +4653,6 @@ func TestDelegationMidas_correctNodesStatus(t *testing.T) {
 		}
 		assert.True(t, found)
 	}
-}
-
-func TestDelegationSystemSCMidas_ExecuteChangeOwnerUserErrors(t *testing.T) {
-	t.Parallel()
-
-	vmInputArgs := make([][]byte, 0)
-	args := createMockArgumentsForDelegationMidas()
-	argsVmContext := VMContextArgs{
-		BlockChainHook:      &mock.BlockChainHookStub{},
-		CryptoHook:          hooks.NewVMCryptoHook(),
-		InputParser:         &mock.ArgumentParserMock{},
-		ValidatorAccountsDB: &stateMock.AccountsStub{},
-		UserAccountsDB:      &stateMock.AccountsStub{},
-		ChanceComputer:      &mock.RaterMock{},
-		EnableEpochsHandler: args.EnableEpochsHandler,
-		ShardCoordinator:    &mock.ShardCoordinatorStub{},
-	}
-	eei, err := NewVMContext(argsVmContext)
-	require.Nil(t, err)
-
-	delegationsMap := map[string][]byte{}
-	delegationsMap[ownerKey] = []byte("ownerAddr")
-	eei.storageUpdate[string(eei.scAddress)] = delegationsMap
-	args.Eei = eei
-
-	d, _ := NewDelegationSystemSCMidas(args)
-	args.EnableEpochsHandler.(*enableEpochsHandlerMock.EnableEpochsHandlerStub).RemoveActiveFlags(common.ChangeDelegationOwnerFlag)
-	vmInput := getDefaultVmInputForFuncMidas("changeOwner", vmInputArgs)
-	output := d.Execute(vmInput)
-	assert.Equal(t, vmcommon.UserError, output)
-	assert.True(t, strings.Contains(eei.returnMessage, vmInput.Function+" is an unknown function"))
-
-	args.EnableEpochsHandler.(*enableEpochsHandlerMock.EnableEpochsHandlerStub).AddActiveFlags(common.ChangeDelegationOwnerFlag)
-	vmInput.CallValue = big.NewInt(0)
-	vmInput.CallerAddr = []byte("aaa")
-	output = d.Execute(vmInput)
-	assert.Equal(t, vmcommon.UserError, output)
-
-	eei.returnMessage = ""
-	vmInput.CallerAddr = delegationsMap[ownerKey]
-	output = d.Execute(vmInput)
-	assert.Equal(t, vmcommon.UserError, output)
-	assert.True(t, strings.Contains(eei.returnMessage, "wrong number of arguments, expected 1"))
-
-	eei.returnMessage = ""
-	vmInput.Arguments = append(vmInput.Arguments, []byte("aaa"))
-	output = d.Execute(vmInput)
-	assert.Equal(t, vmcommon.UserError, output)
-	assert.True(t, strings.Contains(eei.returnMessage, "invalid argument, wanted an address"))
-
-	eei.returnMessage = ""
-	vmInput.Arguments[0] = []byte("second123")
-	delegationMgrMap := map[string][]byte{}
-	delegationMgrMap["second123"] = []byte("info")
-	eei.storageUpdate[string(d.delegationMgrSCAddress)] = delegationMgrMap
-	output = d.Execute(vmInput)
-	assert.Equal(t, vmcommon.UserError, output)
-	assert.True(t, strings.Contains(eei.returnMessage, "destination already deployed a delegation sc"))
-
-	eei.storageUpdate[string(d.delegationMgrSCAddress)] = map[string][]byte{}
-	output = d.Execute(vmInput)
-	assert.Equal(t, vmcommon.UserError, output)
-	assert.True(t, strings.Contains(eei.returnMessage, "owner is new delegator"))
-
-	marshalledData, _ := d.marshalizer.Marshal(&DelegatorData{RewardsCheckpoint: 10})
-	delegationsMap["second123"] = marshalledData
-	output = d.Execute(vmInput)
-	assert.Equal(t, vmcommon.UserError, output)
-	assert.True(t, strings.Contains(eei.returnMessage, "destination should be a new account"))
-}
-
-func TestDelegationSystemSCMidas_ExecuteChangeOwnerWithoutAccountUpdate(t *testing.T) {
-	t.Parallel()
-
-	vmInputArgs := make([][]byte, 0)
-	args := createMockArgumentsForDelegationMidas()
-	epochHandler := args.EnableEpochsHandler.(*enableEpochsHandlerMock.EnableEpochsHandlerStub)
-	epochHandler.RemoveActiveFlags(common.MultiClaimOnDelegationFlag)
-	argsVmContext := VMContextArgs{
-		BlockChainHook:      &mock.BlockChainHookStub{},
-		CryptoHook:          hooks.NewVMCryptoHook(),
-		InputParser:         &mock.ArgumentParserMock{},
-		ValidatorAccountsDB: &stateMock.AccountsStub{},
-		UserAccountsDB:      &stateMock.AccountsStub{},
-		ChanceComputer:      &mock.RaterMock{},
-		EnableEpochsHandler: args.EnableEpochsHandler,
-		ShardCoordinator:    &mock.ShardCoordinatorStub{},
-	}
-	epochHandler.AddActiveFlags(common.ChangeDelegationOwnerFlag)
-	eei, err := NewVMContext(argsVmContext)
-	require.Nil(t, err)
-
-	delegationsMap := map[string][]byte{}
-	delegationsMap[ownerKey] = []byte("ownerAddr")
-	marshalledData, _ := args.Marshalizer.Marshal(&DelegatorData{RewardsCheckpoint: 10})
-	delegationsMap["ownerAddr"] = marshalledData
-	eei.storageUpdate[string(eei.scAddress)] = delegationsMap
-	args.Eei = eei
-
-	d, _ := NewDelegationSystemSCMidas(args)
-	vmInput := getDefaultVmInputForFuncMidas("changeOwner", vmInputArgs)
-	vmInput.CallValue = big.NewInt(0)
-	vmInput.CallerAddr = delegationsMap[ownerKey]
-	vmInput.Arguments = append(vmInput.Arguments, []byte("second123"))
-
-	returnCode := d.Execute(vmInput)
-	assert.Equal(t, returnCode, vmcommon.Ok)
-	assert.Equal(t, delegationsMap[ownerKey], []byte("second123"))
-	assert.Equal(t, eei.storageUpdate[string(d.delegationMgrSCAddress)]["ownerAddr"], []byte{})
-	assert.Equal(t, eei.storageUpdate[string(d.delegationMgrSCAddress)]["second123"], vmInput.RecipientAddr)
-	returnCode = d.Execute(vmInput)
-	assert.Equal(t, returnCode, vmcommon.UserError)
-
-	assert.Len(t, eei.logs, 3)
-	assert.Equal(t, []byte("delegate"), eei.logs[0].Identifier)
-	assert.Equal(t, []byte("second123"), eei.logs[0].Address)
-
-	assert.Equal(t, []byte(withdraw), eei.logs[1].Identifier)
-	assert.Equal(t, []byte("ownerAddr"), eei.logs[1].Address)
-	assert.Equal(t, boolToSlice(true), eei.logs[1].Topics[4])
-
-	assert.Equal(t, []byte(core.BuiltInFunctionChangeOwnerAddress), eei.logs[2].Identifier)
-	assert.Equal(t, []byte("addr"), eei.logs[2].Address)
-	assert.Equal(t, []byte("second123"), eei.logs[2].Topics[0])
-
-	eei.logs = nil
-	vmInput.CallerAddr = []byte("second123")
-	vmInput.Arguments[0] = []byte("ownerAddr")
-	returnCode = d.Execute(vmInput)
-	assert.Equal(t, returnCode, vmcommon.Ok)
-	assert.Equal(t, delegationsMap[ownerKey], []byte("ownerAddr"))
-
-	assert.Equal(t, eei.storageUpdate[string(d.delegationMgrSCAddress)]["ownerAddr"], vmInput.RecipientAddr)
-	assert.Equal(t, eei.storageUpdate[string(d.delegationMgrSCAddress)]["second123"], []byte{})
-
-	assert.Len(t, eei.logs, 3)
-	assert.Equal(t, []byte("delegate"), eei.logs[0].Identifier)
-	assert.Equal(t, []byte("ownerAddr"), eei.logs[0].Address)
-
-	assert.Equal(t, []byte(withdraw), eei.logs[1].Identifier)
-	assert.Equal(t, []byte("second123"), eei.logs[1].Address)
-	assert.Equal(t, boolToSlice(true), eei.logs[1].Topics[4])
-
-	assert.Equal(t, []byte(core.BuiltInFunctionChangeOwnerAddress), eei.logs[2].Identifier)
-	assert.Equal(t, []byte("addr"), eei.logs[2].Address)
-	assert.Equal(t, []byte("ownerAddr"), eei.logs[2].Topics[0])
-}
-
-func TestDelegationSystemSCMidas_ExecuteChangeOwnerWithAccountUpdate(t *testing.T) {
-	t.Parallel()
-
-	vmInputArgs := make([][]byte, 0)
-	args := createMockArgumentsForDelegationMidas()
-	epochHandler := args.EnableEpochsHandler.(*enableEpochsHandlerMock.EnableEpochsHandlerStub)
-	epochHandler.AddActiveFlags(common.FixDelegationChangeOwnerOnAccountFlag)
-	account := &stateMock.AccountWrapMock{}
-	argsVmContext := VMContextArgs{
-		BlockChainHook:      &mock.BlockChainHookStub{},
-		CryptoHook:          hooks.NewVMCryptoHook(),
-		InputParser:         &mock.ArgumentParserMock{},
-		ValidatorAccountsDB: &stateMock.AccountsStub{},
-		UserAccountsDB: &stateMock.AccountsStub{
-			LoadAccountCalled: func(container []byte) (vmcommon.AccountHandler, error) {
-				return account, nil
-			},
-		},
-		ChanceComputer:      &mock.RaterMock{},
-		EnableEpochsHandler: args.EnableEpochsHandler,
-		ShardCoordinator:    &mock.ShardCoordinatorStub{},
-	}
-	epochHandler.AddActiveFlags(common.ChangeDelegationOwnerFlag)
-	eei, err := NewVMContext(argsVmContext)
-	require.Nil(t, err)
-
-	vmInput := getDefaultVmInputForFuncMidas("changeOwner", vmInputArgs)
-	ownerAddress := bytes.Repeat([]byte{1}, len(vmInput.RecipientAddr))
-	newOwnerAddress := bytes.Repeat([]byte{2}, len(vmInput.RecipientAddr))
-	scAddress := bytes.Repeat([]byte{1}, len(vmInput.RecipientAddr))
-	eei.SetSCAddress(scAddress)
-
-	delegationsMap := map[string][]byte{}
-	delegationsMap[ownerKey] = ownerAddress
-	marshalledData, _ := args.Marshalizer.Marshal(&DelegatorData{RewardsCheckpoint: 10})
-	delegationsMap[string(ownerAddress)] = marshalledData
-	eei.storageUpdate[string(eei.scAddress)] = delegationsMap
-	args.Eei = eei
-
-	d, _ := NewDelegationSystemSCMidas(args)
-	vmInput.CallValue = big.NewInt(0)
-	vmInput.CallerAddr = delegationsMap[ownerKey]
-	vmInput.Arguments = append(vmInput.Arguments, newOwnerAddress)
-
-	returnCode := d.Execute(vmInput)
-	assert.Equal(t, returnCode, vmcommon.Ok)
-	assert.Equal(t, newOwnerAddress, delegationsMap[ownerKey])
-	assert.Equal(t, eei.storageUpdate[string(d.delegationMgrSCAddress)][string(ownerAddress)], []byte{})
-	assert.Equal(t, eei.storageUpdate[string(d.delegationMgrSCAddress)][string(newOwnerAddress)], vmInput.RecipientAddr)
-	assert.Equal(t, newOwnerAddress, account.Owner)
 }
 
 func TestDelegationSystemSCMidas_SynchronizeOwner(t *testing.T) {

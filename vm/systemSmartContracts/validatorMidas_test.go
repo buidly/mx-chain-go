@@ -309,17 +309,16 @@ func TestNewStakingValidatorSmartContractMidas_EmptyGovernanceAddress(t *testing
 	require.True(t, errors.Is(err, vm.ErrInvalidAddress))
 }
 
-// TODO: Not sure why this panics with runtime error...
-//func TestNewStakingValidatorSmartContractMidas_NilShardCoordinator(t *testing.T) {
-//	t.Parallel()
-//
-//	arguments := createMockArgumentsForValidatorSCMidas()
-//	arguments.ShardCoordinator = nil
-//
-//	asc, err := NewValidatorSmartContractMidas(arguments)
-//	require.True(t, check.IfNil(asc))
-//	require.True(t, errors.Is(err, vm.ErrNilShardCoordinator))
-//}
+func TestNewStakingValidatorSmartContractMidas_NilShardCoordinator(t *testing.T) {
+	t.Parallel()
+
+	arguments := createMockArgumentsForValidatorSCMidas()
+	arguments.ShardCoordinator = nil
+
+	asc, err := NewValidatorSmartContractMidas(arguments)
+	require.Nil(t, asc)
+	require.True(t, errors.Is(err, vm.ErrNilShardCoordinator))
+}
 
 func TestStakingValidatorSCMidas_ExecuteStakeWithoutBlsKeysShouldWork(t *testing.T) {
 	t.Parallel()
@@ -508,7 +507,7 @@ func TestValidatorStakingSCMidas_ExecuteUnjailOtherCallerShouldErr(t *testing.T)
 
 	retCode := stakingSmartContract.Execute(arguments)
 	assert.Equal(t, vmcommon.UserError, retCode)
-	assert.Equal(t, "unJail function not allowed to be called by address " + string(arguments.CallerAddr), eei.ReturnMessage)
+	assert.Equal(t, "unJail function not allowed to be called by address "+string(arguments.CallerAddr), eei.ReturnMessage)
 }
 
 func TestStakingValidatorSCMidas_ExecuteStakeUnStakeOneBlsPubKey(t *testing.T) {
@@ -1625,7 +1624,7 @@ func TestValidatorStakingSCMidas_ExecuteStakeOtherCallerShouldErr(t *testing.T) 
 
 	retCode := stakingSmartContract.Execute(arguments)
 	assert.Equal(t, vmcommon.UserError, retCode)
-	assert.Equal(t, "stake function not allowed to be called by address " + string(arguments.CallerAddr), eei.ReturnMessage)
+	assert.Equal(t, "stake function not allowed to be called by address "+string(arguments.CallerAddr), eei.ReturnMessage)
 }
 
 func TestValidatorStakingSCMidas_ExecuteUnStakeValueNotZeroShouldErr(t *testing.T) {
@@ -1873,7 +1872,7 @@ func TestValidatorStakingSCMidas_ExecuteUnstakeOtherCallerShouldErr(t *testing.T
 
 	retCode := stakingSmartContract.Execute(arguments)
 	assert.Equal(t, vmcommon.UserError, retCode)
-	assert.Equal(t, "unStake function not allowed to be called by address " + string(arguments.CallerAddr), eei.ReturnMessage)
+	assert.Equal(t, "unStake function not allowed to be called by address "+string(arguments.CallerAddr), eei.ReturnMessage)
 }
 
 func TestValidatorStakingSCMidas_ExecuteUnBondUnmarshalErr(t *testing.T) {
@@ -2177,7 +2176,7 @@ func TestValidatorStakingSCMidas_ExecuteUnbondOtherCallerShouldErr(t *testing.T)
 
 	retCode := stakingSmartContract.Execute(arguments)
 	assert.Equal(t, vmcommon.UserError, retCode)
-	assert.Equal(t, "unBond function not allowed to be called by address " + string(arguments.CallerAddr), eei.ReturnMessage)
+	assert.Equal(t, "unBond function not allowed to be called by address "+string(arguments.CallerAddr), eei.ReturnMessage)
 }
 
 func TestValidatorStakingSCMidas_ExecuteSlashOwnerAddrNotOkShouldErr(t *testing.T) {
@@ -3074,7 +3073,7 @@ func TestStakingValidatorSCMidas_UnbondTokensNotEnabledShouldError(t *testing.T)
 	assert.Equal(t, "invalid method to call", vmOutput.ReturnMessage)
 }
 
-func TestStakingValidatorSCMidas_UnbondTokensOneArgumentShouldError(t *testing.T) {
+func TestStakingValidatorSCMidas_UnbondTokensOneArgument(t *testing.T) {
 	t.Parallel()
 
 	minStakeValue := big.NewInt(1000)
@@ -3130,10 +3129,33 @@ func TestStakingValidatorSCMidas_UnbondTokensOneArgumentShouldError(t *testing.T
 	)
 
 	unBondRequest := big.NewInt(4)
-	callFunctionAndCheckResultMidas(t, "unBondTokens", sc, caller, [][]byte{unBondRequest.Bytes()}, zero, vmcommon.UserError)
-	vmOutput := eei.CreateVMOutput()
-	assert.Equal(t, "too many arguments", vmOutput.ReturnMessage)
+	callFunctionAndCheckResultMidas(t, "unBondTokens", sc, caller, [][]byte{unBondRequest.Bytes()}, zero, vmcommon.Ok)
 
+	expected := &ValidatorDataV2{
+		RegisterNonce:   0,
+		Epoch:           0,
+		RewardAddress:   caller,
+		TotalStakeValue: big.NewInt(1000),
+		LockedStake:     big.NewInt(1000),
+		MaxStakePerNode: big.NewInt(0),
+		BlsPubKeys:      [][]byte{[]byte("key")},
+		NumRegistered:   1,
+		UnstakedInfo: []*UnstakedValue{
+			{
+				UnstakedEpoch: startEpoch,
+				UnstakedValue: big.NewInt(2),
+			},
+			{
+				UnstakedEpoch: startEpoch + 1,
+				UnstakedValue: big.NewInt(4),
+			},
+		},
+		TotalUnstaked: big.NewInt(6),
+	}
+
+	recovered, err := sc.getOrCreateRegistrationData(caller)
+	require.Nil(t, err)
+	assert.Equal(t, expected, recovered)
 }
 
 func TestStakingValidatorSCMidas_UnbondTokensWithCallValueShouldError(t *testing.T) {
@@ -3293,6 +3315,88 @@ func TestStakingValidatorSCMidas_UnBondTokensV2ShouldWork(t *testing.T) {
 	)
 
 	callFunctionAndCheckResultMidas(t, "unBondTokens", sc, caller, nil, zero, vmcommon.Ok)
+
+	expected := &ValidatorDataV2{
+		RegisterNonce:   0,
+		Epoch:           0,
+		RewardAddress:   caller,
+		TotalStakeValue: big.NewInt(1000),
+		LockedStake:     big.NewInt(1000),
+		MaxStakePerNode: big.NewInt(0),
+		BlsPubKeys:      [][]byte{[]byte("key")},
+		NumRegistered:   1,
+		UnstakedInfo: []*UnstakedValue{
+			{
+				UnstakedEpoch: startEpoch + 1,
+				UnstakedValue: big.NewInt(4),
+			},
+		},
+		TotalUnstaked: big.NewInt(4),
+	}
+
+	recovered, err := sc.getOrCreateRegistrationData(caller)
+	require.Nil(t, err)
+
+	assert.Equal(t, expected, recovered)
+}
+
+func TestStakingValidatorSCMidas_UnBondTokensV2WithTooMuchToUnbondShouldWork(t *testing.T) {
+	t.Parallel()
+
+	minStakeValue := big.NewInt(1000)
+	unbondPeriod := uint32(10)
+	startEpoch := uint32(56)
+	blockChainHook := &mock.BlockChainHookStub{
+		CurrentEpochCalled: func() uint32 {
+			return startEpoch + unbondPeriod
+		},
+		CurrentNonceCalled: func() uint64 {
+			return uint64(startEpoch + unbondPeriod)
+		},
+	}
+	args := createMockArgumentsForValidatorSCMidas()
+	enableEpochsHandler, _ := args.EnableEpochsHandler.(*enableEpochsHandlerMock.EnableEpochsHandlerStub)
+	enableEpochsHandler.AddActiveFlags(common.StakingV2Flag)
+	args.StakingSCConfig.UnBondPeriodInEpochs = unbondPeriod
+	eei := createVmContextWithStakingSc(minStakeValue, uint64(unbondPeriod), blockChainHook)
+	args.Eei = eei
+	caller := []byte("caller")
+	sc, _ := NewValidatorSmartContractMidas(args)
+	_ = sc.saveRegistrationData(
+		caller,
+		&ValidatorDataV2{
+			RegisterNonce:   0,
+			Epoch:           0,
+			RewardAddress:   caller,
+			TotalStakeValue: big.NewInt(1000),
+			LockedStake:     big.NewInt(1000),
+			MaxStakePerNode: big.NewInt(0),
+			BlsPubKeys:      [][]byte{[]byte("key")},
+			NumRegistered:   1,
+			UnstakedInfo: []*UnstakedValue{
+				{
+					UnstakedEpoch: startEpoch + 1,
+					UnstakedValue: big.NewInt(4),
+				},
+				{
+					UnstakedEpoch: startEpoch - 2,
+					UnstakedValue: big.NewInt(1),
+				},
+				{
+					UnstakedEpoch: startEpoch - 1,
+					UnstakedValue: big.NewInt(2),
+				},
+				{
+					UnstakedEpoch: startEpoch,
+					UnstakedValue: big.NewInt(3),
+				},
+			},
+			TotalUnstaked: big.NewInt(10),
+		},
+	)
+
+	unbondValueBytes := big.NewInt(7).Bytes()
+	callFunctionAndCheckResultMidas(t, "unBondTokens", sc, caller, [][]byte{unbondValueBytes}, zero, vmcommon.Ok)
 
 	expected := &ValidatorDataV2{
 		RegisterNonce:   0,

@@ -399,13 +399,18 @@ func (d *delegationMidas) delegate(args *vmcommon.ContractCallInput) vmcommon.Re
 		return vmcommon.UserError
 	}
 
-	activeFund, err := d.getFund(delegator.ActiveFund)
-	if err != nil {
-		d.eei.AddReturnMessage(err.Error())
-		return vmcommon.UserError
+	activeFundValue := big.NewInt(0)
+	if len(delegator.ActiveFund) != 0 {
+		activeFund, err := d.getFund(delegator.ActiveFund)
+		if err != nil {
+			d.eei.AddReturnMessage(err.Error())
+			return vmcommon.UserError
+		}
+
+		activeFundValue = activeFund.Value
 	}
 
-	totalPowerAdded := big.NewInt(0).Sub(totalPower, activeFund.Value)
+	totalPowerAdded := big.NewInt(0).Sub(totalPower, activeFundValue)
 	if totalPowerAdded.Cmp(zero) < 0 {
 		d.eei.AddReturnMessage("invalid value to delegate")
 		return vmcommon.UserError
@@ -470,7 +475,7 @@ func (d *delegationMidas) unDelegate(args *vmcommon.ContractCallInput) vmcommon.
 	}
 
 	totalPowerSubstracted := big.NewInt(0).Sub(activeFund.Value, totalPower)
-	if totalPowerSubstracted.Cmp(zero) < 0 {
+	if totalPowerSubstracted.Cmp(zero) <= 0 {
 		d.eei.AddReturnMessage("invalid value to undelegate")
 		return vmcommon.UserError
 	}
@@ -611,7 +616,7 @@ func (d *delegationMidas) withdraw(args *vmcommon.ContractCallInput) vmcommon.Re
 		return vmcommon.UserError
 	}
 
-	vmOutput, err := d.executeOnValidatorSC(args.RecipientAddr, "unBondTokens", [][]byte{}, big.NewInt(0))
+	vmOutput, err := d.executeOnValidatorSC(args.RecipientAddr, "unBondTokens", [][]byte{totalUnBondable.Bytes()}, big.NewInt(0))
 	if err != nil {
 		d.eei.AddReturnMessage(err.Error())
 		return vmcommon.UserError
@@ -620,7 +625,6 @@ func (d *delegationMidas) withdraw(args *vmcommon.ContractCallInput) vmcommon.Re
 		return vmOutput.ReturnCode
 	}
 
-	// TODO: Something is not right here...
 	actualUserUnBond, err := d.resolveUnStakedUnBondResponse(vmOutput.ReturnData, totalUnBondable)
 	if err != nil {
 		d.eei.AddReturnMessage(err.Error())
@@ -660,13 +664,13 @@ func (d *delegationMidas) withdraw(args *vmcommon.ContractCallInput) vmcommon.Re
 	}
 	delegator.UnStakedFunds = tempUnStakedFunds
 
-	globalFund.TotalUnStaked.Sub(globalFund.TotalUnStaked, totalUnBondable)
+	globalFund.TotalUnStaked.Sub(globalFund.TotalUnStaked, actualUserUnBond)
 	err = d.saveGlobalFundData(globalFund)
 	if err != nil {
 		d.eei.AddReturnMessage(err.Error())
 		return vmcommon.UserError
 	}
-	err = d.saveDelegatorData(args.CallerAddr, delegator)
+	err = d.saveDelegatorData(delegatorAddress, delegator)
 	if err != nil {
 		d.eei.AddReturnMessage(err.Error())
 		return vmcommon.UserError
@@ -679,7 +683,7 @@ func (d *delegationMidas) withdraw(args *vmcommon.ContractCallInput) vmcommon.Re
 		return vmcommon.UserError
 	}
 
-	d.createAndAddLogEntryForWithdraw(args.Function, delegatorAddress, totalUnBondable, globalFund, delegator, d.numUsers(), wasDeleted, withdrawFundKeys)
+	d.createAndAddLogEntryForWithdraw(args.Function, delegatorAddress, actualUserUnBond, globalFund, delegator, d.numUsers(), wasDeleted, withdrawFundKeys)
 
 	return vmcommon.Ok
 }
@@ -1079,31 +1083,4 @@ func (d *delegationMidas) finishDelegateUser(
 	}
 
 	return vmcommon.Ok
-}
-
-func (d *delegation) checkOwnerCallValueGasAndDuplicatesMidas(args *vmcommon.ContractCallInput) (vmcommon.ReturnCode, [][]byte) {
-	lenArgs := len(args.Arguments)
-	delegatorAddress := args.Arguments[lenArgs-1]
-	blsKeys := args.Arguments[:lenArgs-1]
-
-	if !d.isOwner(delegatorAddress) {
-		d.eei.AddReturnMessage("only owner can call this method")
-		return vmcommon.UserError, nil
-	}
-	if args.CallValue.Cmp(zero) != 0 {
-		d.eei.AddReturnMessage(vm.ErrCallValueMustBeZero.Error())
-		return vmcommon.UserError, nil
-	}
-	err := d.eei.UseGas(d.gasCost.MetaChainSystemSCsCost.DelegationOps)
-	if err != nil {
-		d.eei.AddReturnMessage(err.Error())
-		return vmcommon.OutOfGas, nil
-	}
-	duplicates := checkForDuplicates(blsKeys)
-	if duplicates {
-		d.eei.AddReturnMessage(vm.ErrDuplicatesFoundInArguments.Error())
-		return vmcommon.UserError, nil
-	}
-
-	return vmcommon.Ok, blsKeys
 }

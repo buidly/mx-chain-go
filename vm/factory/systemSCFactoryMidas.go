@@ -12,6 +12,7 @@ type systemSCFactoryMidas struct {
 	systemSCFactory
 }
 
+// TODO: Update this to correct value
 var AbstractStakingSCAddress = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 255, 255}
 
 func NewSystemSCFactoryMidas(args ArgsNewSystemSCFactory) (*systemSCFactoryMidas, error) {

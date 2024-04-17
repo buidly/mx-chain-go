@@ -620,9 +620,16 @@ func (v *validatorSCMidas) unBondTokens(args *vmcommon.ContractCallInput) vmcomm
 	}
 
 	valueToUnBond := big.NewInt(0)
-	if len(args.Arguments) > 0 {
+	if len(args.Arguments) > 1 {
 		v.eei.AddReturnMessage("too many arguments")
 		return vmcommon.UserError
+	}
+	if len(args.Arguments) == 1 {
+		valueToUnBond = big.NewInt(0).SetBytes(args.Arguments[0])
+		if valueToUnBond.Cmp(zero) <= 0 {
+			v.eei.AddReturnMessage("cannot unBond negative value or zero value")
+			return vmcommon.UserError
+		}
 	}
 
 	totalUnBond, returnCode := v.unBondTokensFromRegistrationData(registrationData, valueToUnBond)

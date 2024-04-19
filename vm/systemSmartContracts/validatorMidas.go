@@ -274,12 +274,12 @@ func (v *validatorSCMidas) stake(args *vmcommon.ContractCallInput) vmcommon.Retu
 	registrationData.MaxStakePerNode = big.NewInt(0).Set(registrationData.TotalStakeValue)
 	registrationData.Epoch = v.eei.BlockChainHook().CurrentEpoch()
 
-	lenAndBlsKeys, newKeys, err := v.registerBLSKeys(registrationData, validatorAddress, validatorAddress, lenAndBlsKeys)
+	blsKeys, newKeys, err := v.registerBLSKeys(registrationData, validatorAddress, validatorAddress, lenAndBlsKeys)
 	if err != nil {
 		v.eei.AddReturnMessage("cannot register bls key: error " + err.Error())
 		return vmcommon.UserError
 	}
-	if v.enableEpochsHandler.IsFlagEnabled(common.DoubleKeyProtectionFlag) && checkDoubleBLSKeys(lenAndBlsKeys) {
+	if v.enableEpochsHandler.IsFlagEnabled(common.DoubleKeyProtectionFlag) && checkDoubleBLSKeys(blsKeys) {
 		v.eei.AddReturnMessage("invalid arguments, found same bls key twice")
 		return vmcommon.UserError
 	}
@@ -314,13 +314,7 @@ func (v *validatorSCMidas) stake(args *vmcommon.ContractCallInput) vmcommon.Retu
 		}
 	}
 
-	v.activateStakingFor(
-		lenAndBlsKeys,
-		registrationData,
-		validatorConfig.NodePrice,
-		registrationData.RewardAddress,
-		validatorAddress,
-	)
+	v.activateNewBLSKeysMidas(registrationData, blsKeys, newKeys, &validatorConfig, args, validatorAddress)
 
 	err = v.saveRegistrationData(validatorAddress, registrationData)
 	if err != nil {
@@ -439,13 +433,7 @@ func (v *validatorSCMidas) stakeNodes(args *vmcommon.ContractCallInput) vmcommon
 		}
 	}
 
-	v.activateStakingFor(
-		blsKeys,
-		registrationData,
-		validatorConfig.NodePrice,
-		registrationData.RewardAddress,
-		args.CallerAddr,
-	)
+	v.activateNewBLSKeysMidas(registrationData, blsKeys, newKeys, &validatorConfig, args, args.CallerAddr)
 
 	err = v.saveRegistrationData(args.CallerAddr, registrationData)
 	if err != nil {
@@ -454,6 +442,41 @@ func (v *validatorSCMidas) stakeNodes(args *vmcommon.ContractCallInput) vmcommon
 	}
 
 	return vmcommon.Ok
+}
+
+
+func (v *validatorSCMidas) activateNewBLSKeysMidas(
+	registrationData *ValidatorDataV2,
+	blsKeys [][]byte,
+	newKeys [][]byte,
+	validatorConfig *ValidatorConfig,
+	args *vmcommon.ContractCallInput,
+	ownerAddress []byte,
+) {
+	numRegisteredBlsKeys := len(registrationData.BlsPubKeys)
+	allNodesActivated := v.activateStakingFor(
+		blsKeys,
+		newKeys,
+		registrationData,
+		validatorConfig.NodePrice,
+		registrationData.RewardAddress,
+		ownerAddress,
+	)
+
+	if !allNodesActivated && len(blsKeys) > 0 {
+		nodeLimit := int64(v.computeNodeLimit())
+		entry := &vmcommon.LogEntry{
+			Identifier: []byte(args.Function),
+			Address:    args.RecipientAddr,
+			Topics: [][]byte{
+				[]byte(numberOfNodesTooHigh),
+				big.NewInt(int64(numRegisteredBlsKeys)).Bytes(),
+				big.NewInt(nodeLimit).Bytes(),
+			},
+		}
+		v.eei.AddLogEntry(entry)
+	}
+
 }
 
 // This is the complete unStake - which after enabling economics V2 will create unStakedFunds on the registration data
@@ -714,13 +737,9 @@ func (v *validatorSCMidas) unJail(args *vmcommon.ContractCallInput) vmcommon.Ret
 		}
 	}
 
-	// TODO: Add support for ESDT
+	// TODO: Add support for ESDT?
 	if transferBack.Cmp(zero) > 0 {
-		err = v.eei.Transfer(validatorAddress, args.RecipientAddr, transferBack, nil, 0)
-		if err != nil {
-			v.eei.AddReturnMessage("transfer error on unJail function")
-			return vmcommon.UserError
-		}
+		v.eei.Transfer(validatorAddress, args.RecipientAddr, transferBack, nil, 0)
 	}
 
 	finalUnJailFunds := big.NewInt(0).Sub(args.CallValue, transferBack)

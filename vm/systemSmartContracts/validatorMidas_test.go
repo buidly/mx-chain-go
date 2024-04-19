@@ -356,6 +356,43 @@ func TestStakingValidatorSCMidas_ExecuteStakeWithoutBlsKeysShouldWork(t *testing
 	assert.Equal(t, vmcommon.Ok, errCode)
 }
 
+func TestStakingValidatorSCMidas_ExecuteStakeNodesWithoutBlsKeysShouldWork(t *testing.T) {
+	t.Parallel()
+
+	arguments := CreateVmContractCallInputMidas()
+	validatorData := createAValidatorData(25000, 2, 12500)
+	validatorDataBytes, _ := json.Marshal(&validatorData)
+
+	validatorAddr := []byte("validatorAddr")
+
+	eei := &mock.SystemEIStub{}
+	eei.GetStorageCalled = func(key []byte) []byte {
+		if bytes.Equal(key, validatorAddr) {
+			return validatorDataBytes
+		}
+		return nil
+	}
+	eei.SetStorageCalled = func(key []byte, value []byte) {
+		if bytes.Equal(key, validatorAddr) {
+			var validatorDataRecovered ValidatorDataV2
+			_ = json.Unmarshal(value, &validatorDataRecovered)
+			assert.Equal(t, big.NewInt(25000), validatorDataRecovered.TotalStakeValue)
+		}
+	}
+	args := createMockArgumentsForValidatorSCMidas()
+	args.Eei = eei
+
+	stakingValidatorSc, _ := NewValidatorSmartContractMidas(args)
+
+	arguments.Function = "stakeNodes"
+	arguments.CallerAddr = validatorAddr
+	arguments.Arguments = [][]byte{}
+	arguments.CallValue = big.NewInt(0)
+
+	errCode := stakingValidatorSc.Execute(arguments)
+	assert.Equal(t, vmcommon.Ok, errCode)
+}
+
 func TestStakingValidatorSCMidas_ExecuteStakeAddedNewPubKeysShouldWork(t *testing.T) {
 	t.Parallel()
 

@@ -777,11 +777,7 @@ func (d *delegationMidas) claimRewards(args *vmcommon.ContractCallInput) vmcommo
 	}
 
 	// Send rewards back to Abstract Staking
-	err = d.eei.Transfer(args.CallerAddr, args.RecipientAddr, delegator.UnClaimedRewards, nil, 0)
-	if err != nil {
-		d.eei.AddReturnMessage(err.Error())
-		return vmcommon.UserError
-	}
+	d.eei.Transfer(args.CallerAddr, args.RecipientAddr, delegator.UnClaimedRewards, nil, 0)
 
 	unclaimedRewardsBytes := delegator.UnClaimedRewards.Bytes()
 	delegator.TotalCumulatedRewards.Add(delegator.TotalCumulatedRewards, delegator.UnClaimedRewards)

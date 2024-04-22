@@ -46,6 +46,9 @@ func NewSystemSCFactoryMidas(args ArgsNewSystemSCFactory) (*systemSCFactoryMidas
 	if check.IfNil(args.EnableEpochsHandler) {
 		return nil, fmt.Errorf("%w in NewSystemSCFactory", vm.ErrNilEnableEpochsHandler)
 	}
+	if check.IfNil(args.NodesCoordinator) {
+		return nil, fmt.Errorf("%w in NewSystemSCFactory", vm.ErrNilNodesCoordinator)
+	}
 
 	scf := &systemSCFactoryMidas{
 		systemSCFactory{
@@ -59,6 +62,7 @@ func NewSystemSCFactoryMidas(args ArgsNewSystemSCFactory) (*systemSCFactoryMidas
 			addressPubKeyConverter: args.AddressPubKeyConverter,
 			shardCoordinator:       args.ShardCoordinator,
 			enableEpochsHandler:    args.EnableEpochsHandler,
+			nodesCoordinator:       args.NodesCoordinator,
 		},
 	}
 

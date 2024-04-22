@@ -173,7 +173,7 @@ func (d *delegationMidas) Execute(args *vmcommon.ContractCallInput) vmcommon.Ret
 	case "modifyTotalDelegationCap":
 		return d.modifyTotalDelegationCap(args)
 	case "updateRewards":
-		return d.updateRewards(args) // TODO: This should be handled by Abstract Staking contract
+		return d.updateRewards(args) // TODO: This should be handled by Abstract Staking contract; Elite Account status of the Staking Agency operator should somehow also be taken into consideration to reduce Staking Agency Fees?
 	case claimRewards:
 		return d.claimRewards(args)
 	case "getRewardData":

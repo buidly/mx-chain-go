@@ -38,3 +38,5 @@ integrationTests/multiShard/endOfEpoch/startInEpoch/Static
 
 cmd/keygenerator/**
 cmd/termui/**
+cmd/sovereignnode/config/*
+cmd/sovereignnode/sovereignnode

@@ -669,12 +669,19 @@ func (pcf *processComponentsFactory) Create() (*processComponents, error) {
 		return nil, errors.New("invalid genesis node price")
 	}
 
+	// TODO: Allow easy customization here
 	nodesSetupChecker, err := checking.NewNodesSetupChecker(
 		pcf.accountsParser,
 		genesisNodePrice,
 		pcf.coreData.ValidatorPubKeyConverter(),
 		pcf.crypto.BlockSignKeyGen(),
 	)
+	//nodesSetupChecker, err := checking.NewNodesSetupCheckerMidas(
+	//	pcf.accountsParser,
+	//	genesisNodePrice,
+	//	pcf.coreData.ValidatorPubKeyConverter(),
+	//	pcf.crypto.BlockSignKeyGen(),
+	//)
 	if err != nil {
 		return nil, err
 	}

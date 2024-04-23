@@ -183,7 +183,8 @@ func setSovereignStakedDataMidas(
 
 	stakedNodes := nodesListSplitter.GetAllNodes()
 	for _, nodeInfo := range stakedNodes {
-		senderAcc, err := arg.Accounts.LoadAccount(nodeInfo.AddressBytes())
+		// TODO: Should we get the AbstractStakingSCAddress address from other part? Is this even possible to do?
+		senderAcc, err := arg.Accounts.LoadAccount(factory.AbstractStakingSCAddress)
 		if err != nil {
 			return nil, err
 		}
@@ -193,7 +194,7 @@ func setSovereignStakedDataMidas(
 			Nonce:    senderAcc.GetNonce(),
 			Value:    big.NewInt(0),
 			RcvAddr:  vm.ValidatorSCAddress,
-			SndAddr:  factory.AbstractStakingSCAddress, // TODO: Should we get this from other part?
+			SndAddr:  factory.AbstractStakingSCAddress,
 			GasPrice: 0,
 			GasLimit: math.MaxUint64,
 			Data: []byte(

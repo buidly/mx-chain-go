@@ -72,6 +72,15 @@ func NewValidatorSmartContractMidas(
 	if err != nil {
 		return nil, err
 	}
+	if check.IfNil(args.NodesCoordinator) {
+		return nil, fmt.Errorf("%w in validatorSC", vm.ErrNilNodesCoordinator)
+	}
+	if args.StakingSCConfig.NodeLimitPercentage < minPercentage {
+		return nil, fmt.Errorf("%w in validatorSC", vm.ErrInvalidNodeLimitPercentage)
+	}
+	if args.StakingSCConfig.StakeLimitPercentage < minPercentage {
+		return nil, fmt.Errorf("%w in validatorSC", vm.ErrInvalidStakeLimitPercentage)
+	}
 
 	baseConfig := ValidatorConfig{
 		TotalSupply: big.NewInt(0).Set(args.GenesisTotalSupply),
@@ -122,6 +131,8 @@ func NewValidatorSmartContractMidas(
 			governanceSCAddress:    args.GovernanceSCAddress,
 			shardCoordinator:       args.ShardCoordinator,
 			enableEpochsHandler:    args.EnableEpochsHandler,
+			nodeLimitPercentage:    args.StakingSCConfig.NodeLimitPercentage,
+			nodesCoordinator:       args.NodesCoordinator,
 		},
 		abstractStakingAddr: args.AbstractStakingAddr,
 	}, nil

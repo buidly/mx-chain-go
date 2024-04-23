@@ -53,6 +53,8 @@ func createMockArgumentsForValidatorSCMidasMidasWithSystemScAddresses(
 				MaxNumberOfNodesForStake:             10,
 				ActivateBLSPubKeyMessageVerification: false,
 				MinUnstakeTokensValue:                "1",
+				StakeLimitPercentage:                 100.0,
+				NodeLimitPercentage:                  100.0,
 			},
 			Marshalizer:            &mock.MarshalizerMock{},
 			GenesisTotalSupply:     big.NewInt(100000000),
@@ -66,7 +68,9 @@ func createMockArgumentsForValidatorSCMidasMidasWithSystemScAddresses(
 				common.ValidatorToDelegationFlag,
 				common.DoubleKeyProtectionFlag,
 				common.MultiClaimOnDelegationFlag,
+				common.StakeLimitsFlag,
 			),
+			NodesCoordinator: &mock.NodesCoordinatorStub{},
 		},
 		AbstractStakingAddr: abstractStakingAddr,
 	}
@@ -207,6 +211,39 @@ func TestNewStakingValidatorSmartContractMidas_NilValidatorSmartContractAddress(
 	asc, err := NewValidatorSmartContractMidas(arguments)
 	require.Nil(t, asc)
 	assert.True(t, errors.Is(err, vm.ErrNilValidatorSmartContractAddress))
+}
+
+func TestNewStakingValidatorSmartContractMidas_NilNodesCoordinator(t *testing.T) {
+	t.Parallel()
+
+	arguments := createMockArgumentsForValidatorSCMidas()
+	arguments.NodesCoordinator = nil
+
+	asc, err := NewValidatorSmartContractMidas(arguments)
+	require.Nil(t, asc)
+	assert.True(t, errors.Is(err, vm.ErrNilNodesCoordinator))
+}
+
+func TestNewStakingValidatorSmartContractMidas_ZeroStakeLimit(t *testing.T) {
+	t.Parallel()
+
+	arguments := createMockArgumentsForValidatorSCMidas()
+	arguments.StakingSCConfig.StakeLimitPercentage = 0.0
+
+	asc, err := NewValidatorSmartContractMidas(arguments)
+	require.Nil(t, asc)
+	assert.True(t, errors.Is(err, vm.ErrInvalidStakeLimitPercentage))
+}
+
+func TestNewStakingValidatorSmartContractMidas_ZeroNodeLimit(t *testing.T) {
+	t.Parallel()
+
+	arguments := createMockArgumentsForValidatorSCMidas()
+	arguments.StakingSCConfig.NodeLimitPercentage = 0.0
+
+	asc, err := NewValidatorSmartContractMidas(arguments)
+	require.Nil(t, asc)
+	assert.True(t, errors.Is(err, vm.ErrInvalidNodeLimitPercentage))
 }
 
 func TestNewStakingValidatorSmartContractMidas_NilSigVerifier(t *testing.T) {

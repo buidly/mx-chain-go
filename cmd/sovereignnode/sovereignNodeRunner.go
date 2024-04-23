@@ -1379,6 +1379,7 @@ func (snr *sovereignNodeRunner) CreateManagedProcessComponents(
 		DataCodec:                             dataCodec,
 		TopicsChecker:                         topicsChecker,
 	}
+	// TODO: Allow easy customization of processComponentsFactory using an interface
 	processComponentsFactory, err := processComp.NewProcessComponentsFactory(processArgs)
 	if err != nil {
 		return nil, fmt.Errorf("NewProcessComponentsFactory failed: %w", err)

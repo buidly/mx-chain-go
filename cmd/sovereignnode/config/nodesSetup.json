@@ -1,5 +1,5 @@
 {
-  "startTime": 1713793571,
+  "startTime": 1713872711,
   "roundDuration": 5000,
   "consensusGroupSize": 2,
   "minNodesPerShard": 2,
@@ -9,13 +9,13 @@
   "adaptivity": false,
   "initialNodes": [
     {
-      "pubkey": "7a5786aff52c8f15fa0b994d47f32cf2c2686c7b697804c3f3fae06ac49424c35daef35dc24297496665a689b3055a193cd313c5c0990c4950768a5e0617e80138e41165c6489292b5cdd808964762314c2f5afff90c2347222bbd238e196103",
-      "address": "erd1gzpvrdnyelafuxew7lcfkj5gphrw7w2afr38rg63htm7nlm0atrqcnqlqq",
+      "pubkey": "232cb5035dbdaf06dd21954b530dbf555ed622167c3c20734648b067ebb6a2875c154ecdb9639e0d1df79be7b46eca022931ec3a0ebeaa58c3ac1d139df1f82e3fe608bd8a9a590038decaf3ea0a11468af8471c7cc1565a6a04938a81dd1004",
+      "address": "erd1lvt3872j9nfugz6a6vwyaa39l8xvqmhp2c8g62vxlkl9grj37f8stwwc05",
       "initialRating": 0
     },
     {
-      "pubkey": "b2558a283ea5d3820ef2808882a1851ebc23c55886c70cd2c50d45ee9249d87a0678a36444fac5ac8cd06641916bf304a39b85ad83606dc3cd6d2f9181d2d8feb674f2a55535f1ff511df0203871a48bfacb83d8ca2eae273e42abbef08df183",
-      "address": "erd1mg4cs9kkfxmc7qhtv7egywfum8c6hv33cd7p5e0ysn65nm53l8nseauakm",
+      "pubkey": "f6513995ba39d882df6757347d035955205688b90f3bbaad0a859c64d2100f1938557e2931c4e0545e397adaf44e0e134d53a5b49f1deabddb80f76da8ea80839acc51f07e75c45436f02f84731027b6283878a0d2b1e6675cecc35121612104",
+      "address": "erd13yqlqzlt9pd467jhvajvgcz5f92npdu7m9r83k9cwhysr6x4q7jq024zva",
       "initialRating": 0
     }
   ]

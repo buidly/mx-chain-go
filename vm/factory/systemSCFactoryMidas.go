@@ -179,6 +179,7 @@ func (scf *systemSCFactoryMidas) createValidatorContract() (vm.SystemSmartContra
 			GovernanceSCAddress:    vm.GovernanceSCAddress,
 			ShardCoordinator:       scf.shardCoordinator,
 			EnableEpochsHandler:    scf.enableEpochsHandler,
+			NodesCoordinator:       scf.nodesCoordinator,
 		},
 		AbstractStakingAddr: AbstractStakingSCAddress,
 	}

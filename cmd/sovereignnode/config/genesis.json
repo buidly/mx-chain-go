@@ -1,0 +1,12 @@
+[
+  {
+    "address": "erd1gzsug2n6th3qztpvgnzqx640azvqkv5phmktrdq766tzxx0zt4jszw8672",
+    "supply": "10000000000000000000010000",
+    "balance": "10000000000000000000000000",
+    "stakingvalue": "10000",
+    "delegation": {
+      "address": "",
+      "value": "0"
+    }
+  }
+]

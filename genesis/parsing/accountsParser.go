@@ -213,6 +213,7 @@ func (ap *accountsParser) checkInitialAccount(initialAccount *data.InitialAccoun
 	sum.Add(sum, initialAccount.StakingValue)
 	sum.Add(sum, initialAccount.Delegation.Value)
 
+	// TODO: Should we disable this for Midas?
 	isSupplyCorrect := big.NewInt(0).Cmp(initialAccount.Supply) < 0 && initialAccount.Supply.Cmp(sum) == 0
 	if !isSupplyCorrect {
 		return fmt.Errorf("%w for address %s, provided %s, computed %s",

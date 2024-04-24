@@ -670,18 +670,18 @@ func (pcf *processComponentsFactory) Create() (*processComponents, error) {
 	}
 
 	// TODO: Allow easy customization here
-	nodesSetupChecker, err := checking.NewNodesSetupChecker(
-		pcf.accountsParser,
-		genesisNodePrice,
-		pcf.coreData.ValidatorPubKeyConverter(),
-		pcf.crypto.BlockSignKeyGen(),
-	)
-	//nodesSetupChecker, err := checking.NewNodesSetupCheckerMidas(
+	//nodesSetupChecker, err := checking.NewNodesSetupChecker(
 	//	pcf.accountsParser,
 	//	genesisNodePrice,
 	//	pcf.coreData.ValidatorPubKeyConverter(),
 	//	pcf.crypto.BlockSignKeyGen(),
 	//)
+	nodesSetupChecker, err := checking.NewNodesSetupCheckerMidas(
+		pcf.accountsParser,
+		genesisNodePrice,
+		pcf.coreData.ValidatorPubKeyConverter(),
+		pcf.crypto.BlockSignKeyGen(),
+	)
 	if err != nil {
 		return nil, err
 	}

@@ -1366,7 +1366,7 @@ func (snr *sovereignNodeRunner) CreateManagedProcessComponents(
 		TxExecutionOrderHandler:               ordering.NewOrderedCollection(),
 		RunTypeComponents:                     runTypeComponents,
 		ShardCoordinatorFactory:               sharding.NewSovereignShardCoordinatorFactory(),
-		GenesisBlockCreatorFactory: 		   genesisProcess.NewSovereignGenesisBlockCreatorFactoryMidas(),
+		GenesisBlockCreatorFactory:            genesisProcess.NewSovereignGenesisBlockCreatorFactoryMidas(),
 		GenesisMetaBlockChecker:               processComp.NewSovereignGenesisMetaBlockChecker(),
 		RequesterContainerFactoryCreator:      requesterscontainer.NewSovereignShardRequestersContainerFactoryCreator(),
 		IncomingHeaderSubscriber:              incomingHeaderHandler,
@@ -1378,13 +1378,12 @@ func (snr *sovereignNodeRunner) CreateManagedProcessComponents(
 		DataCodec:                             dataCodec,
 		TopicsChecker:                         topicsChecker,
 	}
-	// TODO: Allow easy customization of processComponentsFactory using an interface
-	processComponentsFactory, err := processComp.NewProcessComponentsFactory(processArgs)
+	processComponentsFactory, err := processComp.NewProcessComponentsFactoryMidas(processArgs)
 	if err != nil {
 		return nil, fmt.Errorf("NewProcessComponentsFactory failed: %w", err)
 	}
 
-	managedProcessComponents, err := processComp.NewManagedProcessComponents(processComponentsFactory)
+	managedProcessComponents, err := processComp.NewManagedProcessComponentsMidas(processComponentsFactory)
 	if err != nil {
 		return nil, err
 	}

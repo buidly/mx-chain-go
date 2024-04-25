@@ -217,9 +217,7 @@ func (vmf *vmContainerFactory) createSystemVMFactoryAndEEI() (vm.SystemSCContain
 		EnableEpochsHandler:    vmf.enableEpochsHandler,
 		NodesCoordinator:       vmf.nodesCoordinator,
 	}
-	// TODO: This should be configurable probably from main.go
-	//scFactory, err := systemVMFactory.NewSystemSCFactory(argsNewSystemScFactory)
-	scFactory, err := systemVMFactory.NewSystemSCFactoryMidas(argsNewSystemScFactory)
+	scFactory, err := systemVMFactory.NewSystemSCFactory(argsNewSystemScFactory)
 	if err != nil {
 		return nil, nil, err
 	}

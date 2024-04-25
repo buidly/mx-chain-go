@@ -1366,7 +1366,6 @@ func (snr *sovereignNodeRunner) CreateManagedProcessComponents(
 		TxExecutionOrderHandler:               ordering.NewOrderedCollection(),
 		RunTypeComponents:                     runTypeComponents,
 		ShardCoordinatorFactory:               sharding.NewSovereignShardCoordinatorFactory(),
-		//GenesisBlockCreatorFactory:            genesisProcess.NewSovereignGenesisBlockCreatorFactory(),
 		GenesisBlockCreatorFactory: 		   genesisProcess.NewSovereignGenesisBlockCreatorFactoryMidas(),
 		GenesisMetaBlockChecker:               processComp.NewSovereignGenesisMetaBlockChecker(),
 		RequesterContainerFactoryCreator:      requesterscontainer.NewSovereignShardRequestersContainerFactoryCreator(),
@@ -1689,12 +1688,12 @@ func (snr *sovereignNodeRunner) CreateManagedRunTypeComponents(coreComp mainFact
 		return nil, fmt.Errorf("NewRunTypeComponentsFactory failed: %w", err)
 	}
 
-	sovereignRunTypeComponentsFactory, err := runType.NewSovereignRunTypeComponentsFactory(
+	sovereignRunTypeComponentsFactory, err := runType.NewSovereignRunTypeComponentsFactoryMidas(
 		runTypeComponentsFactory,
 		cfg,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("NewSovereignRunTypeComponentsFactory failed: %w", err)
+		return nil, fmt.Errorf("NewSovereignRunTypeComponentsFactoryMidas failed: %w", err)
 	}
 
 	managedRunTypeComponents, err := runType.NewManagedRunTypeComponents(sovereignRunTypeComponentsFactory)

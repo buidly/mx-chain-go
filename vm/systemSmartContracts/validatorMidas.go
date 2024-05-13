@@ -195,10 +195,6 @@ func (v *validatorSCMidas) Execute(args *vmcommon.ContractCallInput) vmcommon.Re
 		return v.getUnStakedTokensList(args)
 	case "reStakeUnStakedNodes":
 		return v.reStakeUnStakedNodes(args)
-	//case "mergeValidatorData":
-	//	return v.mergeValidatorData(args) // TODO: These should also be overwritten or we should disable this functionality?
-	//case "changeOwnerOfValidatorData":
-	//	return v.changeOwnerOfValidatorData(args)
 	}
 
 	v.eei.AddReturnMessage("invalid method to call")
@@ -696,6 +692,10 @@ func (v *validatorSCMidas) unJail(args *vmcommon.ContractCallInput) vmcommon.Ret
 		v.eei.AddReturnMessage("unJail function not allowed to be called by address " + string(args.CallerAddr))
 		return vmcommon.UserError
 	}
+	if args.CallValue.Cmp(zero) != 0 {
+		v.eei.AddReturnMessage(vm.TransactionValueMustBeZero)
+		return vmcommon.UserError
+	}
 
 	if !v.enableEpochsHandler.IsFlagEnabled(common.StakeFlag) {
 		return v.unJailV1(args)
@@ -709,14 +709,6 @@ func (v *validatorSCMidas) unJail(args *vmcommon.ContractCallInput) vmcommon.Ret
 	numBLSKeys := len(args.Arguments) - 1
 	validatorAddress := args.Arguments[numBLSKeys]
 	blsKeys := args.Arguments[:numBLSKeys]
-	validatorConfig := v.getConfig(v.eei.BlockChainHook().CurrentEpoch())
-	totalUnJailPrice := big.NewInt(0).Mul(validatorConfig.UnJailPrice, big.NewInt(int64(numBLSKeys)))
-
-	// TODO: Add support for ESDT?
-	if totalUnJailPrice.Cmp(args.CallValue) != 0 {
-		v.eei.AddReturnMessage("wanted exact unjail price * numNodes")
-		return vmcommon.UserError
-	}
 
 	err := v.eei.UseGas(v.gasCost.MetaChainSystemSCsCost.UnJail * uint64(numBLSKeys))
 	if err != nil {
@@ -736,24 +728,16 @@ func (v *validatorSCMidas) unJail(args *vmcommon.ContractCallInput) vmcommon.Ret
 		return vmcommon.UserError
 	}
 
-	transferBack := big.NewInt(0)
 	for _, blsKey := range blsKeys {
 		vmOutput, errExec := v.executeOnStakingSC([]byte("unJail@" + hex.EncodeToString(blsKey)))
 		if errExec != nil || vmOutput.ReturnCode != vmcommon.Ok {
-			transferBack.Add(transferBack, validatorConfig.UnJailPrice)
 			v.eei.Finish(blsKey)
 			v.eei.Finish([]byte{failed})
 			continue
 		}
 	}
 
-	// TODO: Add support for ESDT?
-	if transferBack.Cmp(zero) > 0 {
-		v.eei.Transfer(validatorAddress, args.RecipientAddr, transferBack, nil, 0)
-	}
-
-	finalUnJailFunds := big.NewInt(0).Sub(args.CallValue, transferBack)
-	v.addToUnJailFunds(finalUnJailFunds)
+	v.addToUnJailFunds(args.CallValue)
 
 	return vmcommon.Ok
 }

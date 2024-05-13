@@ -138,16 +138,6 @@ func (d *delegationMidas) Execute(args *vmcommon.ContractCallInput) vmcommon.Ret
 	switch args.Function {
 	case core.SCDeployInitFunctionName:
 		return d.init(args)
-	//case initFromValidatorData:
-	//	return d.initFromValidatorData(args) // TODO: These don't work properly since they don't interact with the Abstract Staking contract
-	//case mergeValidatorDataToDelegation:
-	//	return d.mergeValidatorDataToDelegation(args)
-	//case "whitelistForMerge":
-	//	return d.whitelistForMerge(args)
-	//case deleteWhitelistForMerge:
-	//	return d.deleteWhitelistForMerge(args)
-	//case "getWhitelistForMerge":
-	//	return d.getWhitelistForMerge(args)
 	case "addNodes":
 		return d.addNodes(args)
 	case "removeNodes":
@@ -260,115 +250,6 @@ func (d *delegationMidas) init(args *vmcommon.ContractCallInput) vmcommon.Return
 
 	return vmcommon.Ok
 }
-
-// TODO:
-//func (d *delegationMidas) initFromValidatorData(args *vmcommon.ContractCallInput) vmcommon.ReturnCode {
-//	returnCode := d.checkArgumentsForValidatorToDelegation(args)
-//	if returnCode != vmcommon.Ok {
-//		return returnCode
-//	}
-//	if len(args.Arguments) != 3 {
-//		d.eei.AddReturnMessage("invalid number of arguments")
-//		return vmcommon.UserError
-//	}
-//
-//	maxDelegationCap := big.NewInt(0).SetBytes(args.Arguments[1])
-//	if maxDelegationCap.Cmp(zero) < 0 {
-//		d.eei.AddReturnMessage("invalid max delegation cap")
-//		return vmcommon.UserError
-//	}
-//	serviceFee := big.NewInt(0).SetBytes(args.Arguments[2]).Uint64()
-//	if serviceFee < d.minServiceFee || serviceFee > d.maxServiceFee {
-//		d.eei.AddReturnMessage("service fee out of bounds")
-//		return vmcommon.UserError
-//	}
-//
-//	ownerAddress := args.Arguments[0]
-//	argumentsForChange := [][]byte{ownerAddress, args.RecipientAddr}
-//	// TODO: Proxy this through Abstract Staking?
-//	vmOutput, err := d.executeOnValidatorSC(d.delegationMgrSCAddress, "changeOwnerOfValidatorData", argumentsForChange, zero)
-//	if err != nil {
-//		d.eei.AddReturnMessage(err.Error())
-//		return vmcommon.UserError
-//	}
-//	if vmOutput.ReturnCode != vmcommon.Ok {
-//		return vmOutput.ReturnCode
-//	}
-//
-//	validatorData, returnCode := d.getAndVerifyValidatorData(args.RecipientAddr)
-//	if returnCode != vmcommon.Ok {
-//		return returnCode
-//	}
-//
-//	delegationManagement, err := getDelegationManagement(d.eei, d.marshalizer, d.delegationMgrSCAddress)
-//	if err != nil {
-//		d.eei.AddReturnMessage(err.Error())
-//		return vmcommon.UserError
-//	}
-//
-//	returnCode = d.initDelegationStructures(delegationManagement.MinDeposit, ownerAddress, serviceFee, maxDelegationCap)
-//	if returnCode != vmcommon.Ok {
-//		return returnCode
-//	}
-//
-//	dStatus := createNewDelegationContractStatus()
-//	err = d.updateDelegationStatusFromValidatorData(validatorData, dStatus)
-//	if err != nil {
-//		d.eei.AddReturnMessage(err.Error())
-//		return vmcommon.UserError
-//	}
-//
-//	returnCode = d.delegateUser(args, validatorData.TotalStakeValue, big.NewInt(0), ownerAddress, dStatus)
-//	if returnCode != vmcommon.Ok {
-//		return returnCode
-//	}
-//
-//	return vmcommon.Ok
-//}
-//
-//func (d *delegationMidas) mergeValidatorDataToDelegation(args *vmcommon.ContractCallInput) vmcommon.ReturnCode {
-//	returnCode := d.checkArgumentsForValidatorToDelegation(args)
-//	if returnCode != vmcommon.Ok {
-//		return returnCode
-//	}
-//	if len(args.Arguments) != 1 {
-//		d.eei.AddReturnMessage("invalid number of arguments")
-//		return vmcommon.UserError
-//	}
-//
-//	validatorAddress := args.Arguments[0]
-//	validatorData, returnCode := d.getAndVerifyValidatorData(validatorAddress)
-//	if returnCode != vmcommon.Ok {
-//		return returnCode
-//	}
-//
-//	argumentsForMerge := [][]byte{validatorAddress, args.RecipientAddr}
-//	// TODO: Proxy this through Abstract Staking?
-//	vmOutput, err := d.executeOnValidatorSC(d.delegationMgrSCAddress, "mergeValidatorData", argumentsForMerge, zero)
-//	if err != nil {
-//		d.eei.AddReturnMessage(err.Error())
-//		return vmcommon.UserError
-//	}
-//	if vmOutput.ReturnCode != vmcommon.Ok {
-//		return vmOutput.ReturnCode
-//	}
-//
-//	dStatus, err := d.getDelegationStatus()
-//	if err != nil {
-//		d.eei.AddReturnMessage(err.Error())
-//		return vmcommon.UserError
-//	}
-//
-//	err = d.updateDelegationStatusFromValidatorData(validatorData, dStatus)
-//	if err != nil {
-//		d.eei.AddReturnMessage(err.Error())
-//		return vmcommon.UserError
-//	}
-//
-//	d.createAndAddLogEntry(args, validatorAddress)
-//
-//	return d.delegateUser(args, validatorData.TotalStakeValue, big.NewInt(0), validatorAddress, dStatus)
-//}
 
 func (d *delegationMidas) delegate(args *vmcommon.ContractCallInput) vmcommon.ReturnCode {
 	if !bytes.Equal(args.CallerAddr, d.abstractStakingAddr) {
@@ -1041,7 +922,6 @@ func (d *delegationMidas) finishDelegateUser(
 		return vmcommon.UserError
 	}
 
-	// TODO: Test this
 	stakeArgs := d.makeStakeArgsIfAutomaticActivation(dConfig, dStatus, globalFund)
 	vmOutput, err := d.executeOnValidatorSC(scAddress, "stakeNodes", stakeArgs, zero)
 	if err != nil {

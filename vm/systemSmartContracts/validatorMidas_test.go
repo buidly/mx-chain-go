@@ -654,7 +654,6 @@ func TestStakingValidatorSCMidas_ExecuteStakeUnJail(t *testing.T) {
 
 	arguments.Function = "unJail"
 	arguments.Arguments = [][]byte{stakerPubKey, validatorAddress}
-	arguments.CallValue = big.NewInt(100)
 	retCode = sc.Execute(arguments)
 	assert.Equal(t, vmcommon.Ok, retCode)
 
@@ -704,7 +703,6 @@ func TestStakingValidatorSCMidas_ExecuteStakeNodesUnJail(t *testing.T) {
 
 	arguments.Function = "unJail"
 	arguments.Arguments = [][]byte{stakerPubKey, validatorAddress}
-	arguments.CallValue = big.NewInt(100)
 	arguments.CallerAddr = AbstractStakingSCAddress
 	retCode = sc.Execute(arguments)
 	assert.Equal(t, vmcommon.Ok, retCode)

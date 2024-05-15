@@ -10,15 +10,19 @@ import (
 	"github.com/multiversx/mx-chain-go/dataRetriever/factory/resolverscontainer"
 	"github.com/multiversx/mx-chain-go/factory"
 	bootstrapComp "github.com/multiversx/mx-chain-go/factory/bootstrap"
+	"github.com/multiversx/mx-chain-go/factory/runType"
 	"github.com/multiversx/mx-chain-go/genesis/data"
 	genesisProcess "github.com/multiversx/mx-chain-go/genesis/process"
 	"github.com/multiversx/mx-chain-go/process/block/preprocess"
 	"github.com/multiversx/mx-chain-go/process/factory/interceptorscontainer"
 	commonMocks "github.com/multiversx/mx-chain-go/testscommon/common"
 	"github.com/multiversx/mx-chain-go/testscommon/dblookupext"
+	"github.com/multiversx/mx-chain-go/testscommon/enableEpochsHandlerMock"
+	"github.com/multiversx/mx-chain-go/testscommon/hashingMocks"
 	"github.com/multiversx/mx-chain-go/testscommon/headerSigVerifier"
 	"github.com/multiversx/mx-chain-go/testscommon/shardingMocks"
 	"github.com/multiversx/mx-chain-go/testscommon/sovereign"
+	logger "github.com/multiversx/mx-chain-logger-go"
 	wasmConfig "github.com/multiversx/mx-chain-vm-go/config"
 	"github.com/stretchr/testify/assert"
 	"math/big"
@@ -38,6 +42,7 @@ import (
 	processComp "github.com/multiversx/mx-chain-go/factory/processing"
 	"github.com/multiversx/mx-chain-go/genesis"
 	genesisMocks "github.com/multiversx/mx-chain-go/genesis/mock"
+	mockCoreComp "github.com/multiversx/mx-chain-go/integrationTests/mock"
 	testsMocks "github.com/multiversx/mx-chain-go/integrationTests/mock"
 	"github.com/multiversx/mx-chain-go/p2p"
 	"github.com/multiversx/mx-chain-go/process"
@@ -954,7 +959,7 @@ func TestProcessComponentsFactoryMidas_Create(t *testing.T) {
 	t.Run("should work - shard", func(t *testing.T) {
 		shardCoordinator := sharding.NewSovereignShardCoordinator(core.SovereignChainShardId)
 		processArgs := GetProcessComponentsFactoryArgsMidas(shardCoordinator)
-		processArgs.RunTypeComponents = components.GetSovereignRunTypeComponents()
+		processArgs.RunTypeComponents = GetSovereignRunTypeComponentsMidas()
 		pcf, _ := processComp.NewProcessComponentsFactoryMidas(processArgs)
 
 		require.NotNil(t, pcf)
@@ -1215,5 +1220,35 @@ func GetProcessArgsMidas(
 		DataCodec:                             &sovereign.DataCodecMock{},
 		TopicsChecker:                         &sovereign.TopicsCheckerMock{},
 		RunTypeComponents:                     components.GetRunTypeComponents(),
+	}
+}
+
+var log = logger.GetOrCreate("componentsMock")
+
+func GetSovereignRunTypeComponentsMidas() factory.RunTypeComponentsHolder {
+	runTypeComponentsFactory, _ := runType.NewRunTypeComponentsFactory(&mockCoreComp.CoreComponentsStub{
+		HasherField:              &hashingMocks.HasherMock{},
+		InternalMarshalizerField: &marshallerMock.MarshalizerMock{},
+		EnableEpochsHandlerField: &enableEpochsHandlerMock.EnableEpochsHandlerStub{},
+	})
+	sovereignComponentsFactory, _ := runType.NewSovereignRunTypeComponentsFactoryMidas(runTypeComponentsFactory, getSovConfigMidas())
+	managedRunTypeComponents, err := runType.NewManagedRunTypeComponents(sovereignComponentsFactory)
+	if err != nil {
+		log.Error("getRunTypeComponents NewManagedRunTypeComponents", "error", err.Error())
+		return nil
+	}
+	err = managedRunTypeComponents.Create()
+	if err != nil {
+		log.Error("getRunTypeComponents Create", "error", err.Error())
+		return nil
+	}
+	return managedRunTypeComponents
+}
+
+func getSovConfigMidas() config.SovereignConfig {
+	return config.SovereignConfig{
+		GenesisConfig: config.GenesisConfig{
+			NativeESDT: "WEGLD-ab47da",
+		},
 	}
 }

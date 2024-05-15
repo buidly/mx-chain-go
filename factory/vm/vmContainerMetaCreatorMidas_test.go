@@ -2,10 +2,11 @@ package vm_test
 
 import (
 	"fmt"
+	"github.com/multiversx/mx-chain-go/errors"
+	"github.com/multiversx/mx-chain-go/testscommon/vmContext"
 	"testing"
 
 	"github.com/multiversx/mx-chain-go/factory/vm"
-	"github.com/multiversx/mx-chain-go/process"
 	"github.com/multiversx/mx-chain-go/testscommon/factory"
 	"github.com/stretchr/testify/require"
 )
@@ -14,19 +15,20 @@ func TestNewVmContainerMetaCreatorFactoryMidas(t *testing.T) {
 	t.Parallel()
 
 	t.Run("should work", func(t *testing.T) {
-		t.Parallel()
-
-		bhhc := &factory.BlockChainHookHandlerFactoryMock{}
-		vmContainerMetaFactory, err := vm.NewVmContainerMetaFactoryMidas(bhhc)
+		vmContainerMetaFactory, err := vm.NewVmContainerMetaFactoryMidas(&factory.BlockChainHookHandlerFactoryMock{}, &vmContext.VMContextCreatorStub{})
 		require.Nil(t, err)
 		require.False(t, vmContainerMetaFactory.IsInterfaceNil())
 	})
 
-	t.Run("should error", func(t *testing.T) {
-		t.Parallel()
+	t.Run("nil blockchain hook creator", func(t *testing.T) {
+		vmContainerMetaFactory, err := vm.NewVmContainerMetaFactoryMidas(nil, &vmContext.VMContextCreatorStub{})
+		require.ErrorIs(t, err, errors.ErrNilBlockChainHookCreator)
+		require.True(t, vmContainerMetaFactory.IsInterfaceNil())
+	})
 
-		vmContainerMetaFactory, err := vm.NewVmContainerMetaFactoryMidas(nil)
-		require.ErrorIs(t, err, process.ErrNilBlockChainHook)
+	t.Run("nil vm context creator", func(t *testing.T) {
+		vmContainerMetaFactory, err := vm.NewVmContainerMetaFactoryMidas(&factory.BlockChainHookHandlerFactoryMock{}, nil)
+		require.ErrorIs(t, err, errors.ErrNilVMContextCreator)
 		require.True(t, vmContainerMetaFactory.IsInterfaceNil())
 	})
 }
@@ -34,8 +36,7 @@ func TestNewVmContainerMetaCreatorFactoryMidas(t *testing.T) {
 func TestVmContainerMetaFactoryMidas_CreateVmContainerFactoryMeta(t *testing.T) {
 	t.Parallel()
 
-	bhhc := &factory.BlockChainHookHandlerFactoryMock{}
-	vmContainerMetaFactory, err := vm.NewVmContainerMetaFactoryMidas(bhhc)
+	vmContainerMetaFactory, err := vm.NewVmContainerMetaFactoryMidas(&factory.BlockChainHookHandlerFactoryMock{}, &vmContext.VMContextCreatorStub{})
 	require.Nil(t, err)
 	require.False(t, vmContainerMetaFactory.IsInterfaceNil())
 

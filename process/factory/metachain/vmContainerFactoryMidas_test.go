@@ -2,6 +2,8 @@ package metachain
 
 import (
 	"errors"
+	errorsCommon "github.com/multiversx/mx-chain-go/errors"
+	"github.com/multiversx/mx-chain-go/vm/systemSmartContracts"
 	"testing"
 
 	"github.com/multiversx/mx-chain-core-go/core/check"
@@ -201,6 +203,18 @@ func TestNewVMContainerFactoryMidas_NilEnableEpochsHandler(t *testing.T) {
 	assert.True(t, errors.Is(err, vm.ErrNilEnableEpochsHandler))
 }
 
+func TestNewVMContainerFactoryMidas_NilVMContextCreator(t *testing.T) {
+	t.Parallel()
+
+	gasSchedule := makeGasSchedule()
+	argsNewVmContainerFactory := createVmContainerMockArgument(gasSchedule)
+	argsNewVmContainerFactory.VMContextCreatorHandler = nil
+	vmf, err := NewVMContainerFactoryMidas(argsNewVmContainerFactory)
+
+	require.True(t, check.IfNil(vmf))
+	require.True(t, errors.Is(err, errorsCommon.ErrNilVMContextCreator))
+}
+
 func TestNewVMContainerFactoryMidas_OkValues(t *testing.T) {
 	t.Parallel()
 
@@ -329,6 +343,7 @@ func TestVmContainerFactoryMidas_Create(t *testing.T) {
 		NodesCoordinator: &shardingMocks.NodesCoordinatorMock{GetNumTotalEligibleCalled: func() uint64 {
 			return 1000
 		}},
+		VMContextCreatorHandler: systemSmartContracts.NewVMContextCreator(),
 	}
 	vmf, err := NewVMContainerFactoryMidas(argsNewVMContainerFactory)
 	assert.NotNil(t, vmf)

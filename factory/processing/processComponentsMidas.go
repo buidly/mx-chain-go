@@ -559,6 +559,7 @@ func (pcf *processComponentsFactoryMidas) Create() (*processComponents, error) {
 		currentEpochProvider:             currentEpochProvider,
 		vmFactoryForTxSimulator:          vmFactoryForTxSimulate,
 		vmFactoryForProcessing:           blockProcessorComponents.vmFactoryForProcessing,
+		epochSystemSCProcessor:           blockProcessorComponents.epochSystemSCProcessor,
 		scheduledTxsExecutionHandler:     scheduledTxsExecutionHandler,
 		txsSender:                        txsSenderWithAccumulator,
 		hardforkTrigger:                  hardforkTrigger,

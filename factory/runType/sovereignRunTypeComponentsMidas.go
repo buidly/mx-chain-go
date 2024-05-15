@@ -2,6 +2,7 @@ package runType
 
 import (
 	"fmt"
+	"github.com/multiversx/mx-chain-go/vm/systemSmartContracts"
 
 	"github.com/multiversx/mx-chain-core-go/core/check"
 	"github.com/multiversx/mx-chain-go/config"
@@ -122,7 +123,8 @@ func (rcf *sovereignRunTypeComponentsFactoryMidas) Create() (*runTypeComponents,
 		return nil, fmt.Errorf("sovereignRunTypeComponentsFactory - NewSovereignSmartContractResultPreProcessorFactory failed: %w", err)
 	}
 
-	rtc.vmContainerMetaFactory, err = factoryVm.NewVmContainerMetaFactoryMidas(sovBlockChainHookHandlerFactory)
+	sovVMContextCreator := systemSmartContracts.NewOneShardSystemVMEEICreator()
+	rtc.vmContainerMetaFactory, err = factoryVm.NewVmContainerMetaFactoryMidas(sovBlockChainHookHandlerFactory, sovVMContextCreator)
 	if err != nil {
 		return nil, fmt.Errorf("sovereignRunTypeComponentsFactory - NewVmContainerMetaFactoryMidas failed: %w", err)
 	}
@@ -169,5 +171,6 @@ func (rcf *sovereignRunTypeComponentsFactoryMidas) Create() (*runTypeComponents,
 		vmContainerMetaFactory:              rtc.vmContainerMetaFactory,
 		vmContainerShardFactory:             sovereignVmContainerShardCreator,
 		accountsCreator:                     accountsCreator,
+		vmContextCreator:                    sovVMContextCreator,
 	}, nil
 }

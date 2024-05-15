@@ -94,6 +94,7 @@ func createProcessorsForMetaGenesisBlockMidas(arg ArgsGenesisBlockCreator, enabl
 		ShardCoordinator:    arg.ShardCoordinator,
 		EnableEpochsHandler: enableEpochsHandler,
 		NodesCoordinator:    &disabled.NodesCoordinator{},
+		VMContextCreatorHandler: arg.RunTypeComponents.VMContextCreator(),
 	}
 	virtualMachineFactory, err := metachain.NewVMContainerFactoryMidas(argsNewVMContainerFactory)
 	if err != nil {

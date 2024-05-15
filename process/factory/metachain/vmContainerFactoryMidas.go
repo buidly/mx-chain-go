@@ -3,6 +3,7 @@ package metachain
 import (
 	"fmt"
 	"github.com/multiversx/mx-chain-core-go/core/check"
+	"github.com/multiversx/mx-chain-go/errors"
 	"github.com/multiversx/mx-chain-go/process"
 	"github.com/multiversx/mx-chain-go/process/factory"
 	"github.com/multiversx/mx-chain-go/process/factory/containers"
@@ -64,6 +65,9 @@ func NewVMContainerFactoryMidas(args ArgsNewVMContainerFactory) (*vmContainerFac
 	if check.IfNil(args.NodesCoordinator) {
 		return nil, fmt.Errorf("%w in NewVMContainerFactory", process.ErrNilNodesCoordinator)
 	}
+	if check.IfNil(args.VMContextCreatorHandler) {
+		return nil, fmt.Errorf("%w in NewVMContainerFactory", errors.ErrNilVMContextCreator)
+	}
 
 	cryptoHook := hooks.NewVMCryptoHook()
 
@@ -85,6 +89,7 @@ func NewVMContainerFactoryMidas(args ArgsNewVMContainerFactory) (*vmContainerFac
 			shardCoordinator:       args.ShardCoordinator,
 			enableEpochsHandler:    args.EnableEpochsHandler,
 			nodesCoordinator:       args.NodesCoordinator,
+			vmContextCreatorHandler: args.VMContextCreatorHandler,
 		},
 	}, nil
 }
@@ -164,7 +169,7 @@ func (vmf *vmContainerFactoryMidas) createSystemVMFactoryAndEEI() (vm.SystemSCCo
 		EnableEpochsHandler: vmf.enableEpochsHandler,
 		ShardCoordinator:    vmf.shardCoordinator,
 	}
-	systemEI, err := systemSmartContracts.NewVMContext(vmContextArgs)
+	systemEI, err := vmf.vmContextCreatorHandler.CreateVmContext(vmContextArgs)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -11,6 +11,7 @@ import (
 	"github.com/multiversx/mx-chain-go/factory/disabled"
 	"github.com/multiversx/mx-chain-go/fallback"
 	"github.com/multiversx/mx-chain-go/genesis/checking"
+	genesisProcess "github.com/multiversx/mx-chain-go/genesis/process"
 	"github.com/multiversx/mx-chain-go/process"
 	"github.com/multiversx/mx-chain-go/process/block"
 	"github.com/multiversx/mx-chain-go/process/block/bootstrapStorage"
@@ -74,7 +75,7 @@ func NewProcessComponentsFactoryMidas(args ProcessComponentsFactoryArgs) (*proce
 			roundConfig:                           args.RoundConfig,
 			runTypeComponents:                     args.RunTypeComponents,
 			shardCoordinatorFactory:               args.ShardCoordinatorFactory,
-			genesisBlockCreatorFactory:            args.GenesisBlockCreatorFactory,
+			genesisBlockCreatorFactory:            genesisProcess.NewSovereignGenesisBlockCreatorFactoryMidas(),
 			genesisMetaBlockChecker:               args.GenesisMetaBlockChecker,
 			requesterContainerFactoryCreator:      args.RequesterContainerFactoryCreator,
 			incomingHeaderSubscriber:              args.IncomingHeaderSubscriber,

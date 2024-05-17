@@ -241,7 +241,7 @@ func (rcf *sovereignRunTypeComponentsFactoryMidas) Create() (*runTypeComponents,
 		shardResolversContainerFactoryCreator:   resolverscontainer.NewSovereignShardResolversContainerFactoryCreator(),
 		txPreProcessorCreator:                   preprocess.NewSovereignTxPreProcessorCreator(),
 		extraHeaderSigVerifierHolder:            rtc.extraHeaderSigVerifierHolder,
-		genesisBlockCreatorFactory:              processComp.NewSovereignGenesisBlockCreatorFactory(),
+		genesisBlockCreatorFactory:              processComp.NewSovereignGenesisBlockCreatorFactoryMidas(),
 		genesisMetaBlockCheckerCreator:          processComp.NewSovereignGenesisMetaBlockChecker(),
 	}, nil
 }

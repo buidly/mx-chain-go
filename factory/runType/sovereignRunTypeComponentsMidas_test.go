@@ -8,24 +8,42 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+
 func TestNewSovereignRunTypeComponentsFactoryMidas(t *testing.T) {
 	t.Parallel()
 
-	srcf, err := runType.NewSovereignRunTypeComponentsFactoryMidas(nil, createSovConfig())
-	require.Nil(t, srcf)
-	require.ErrorIs(t, errors.ErrNilRunTypeComponentsFactory, err)
-
-	rcf, _ := runType.NewRunTypeComponentsFactory(createCoreComponents())
-	srcf, err = runType.NewSovereignRunTypeComponentsFactoryMidas(rcf, createSovConfig())
-	require.NotNil(t, srcf)
-	require.NoError(t, err)
+	t.Run("nil runType components factory", func(t *testing.T) {
+		sovArgs := createSovRunTypeArgs()
+		sovArgs.RunTypeComponentsFactory = nil
+		srcf, err := runType.NewSovereignRunTypeComponentsFactoryMidas(sovArgs)
+		require.Nil(t, srcf)
+		require.ErrorIs(t, errors.ErrNilRunTypeComponentsFactory, err)
+	})
+	t.Run("nil data codec", func(t *testing.T) {
+		sovArgs := createSovRunTypeArgs()
+		sovArgs.DataCodec = nil
+		srcf, err := runType.NewSovereignRunTypeComponentsFactoryMidas(sovArgs)
+		require.Nil(t, srcf)
+		require.ErrorIs(t, errors.ErrNilDataCodec, err)
+	})
+	t.Run("nil topics checker", func(t *testing.T) {
+		sovArgs := createSovRunTypeArgs()
+		sovArgs.TopicsChecker = nil
+		srcf, err := runType.NewSovereignRunTypeComponentsFactoryMidas(sovArgs)
+		require.Nil(t, srcf)
+		require.ErrorIs(t, errors.ErrNilTopicsChecker, err)
+	})
+	t.Run("should work", func(t *testing.T) {
+		srcf, err := runType.NewSovereignRunTypeComponentsFactoryMidas(createSovRunTypeArgs())
+		require.NotNil(t, srcf)
+		require.NoError(t, err)
+	})
 }
 
 func TestSovereignRunTypeComponentsFactoryMidas_Create(t *testing.T) {
 	t.Parallel()
 
-	rcf, _ := runType.NewRunTypeComponentsFactory(createCoreComponents())
-	srcf, _ := runType.NewSovereignRunTypeComponentsFactoryMidas(rcf, createSovConfig())
+	srcf, _ := runType.NewSovereignRunTypeComponentsFactoryMidas(createSovRunTypeArgs())
 
 	rc, err := srcf.Create()
 	require.NoError(t, err)
@@ -35,8 +53,7 @@ func TestSovereignRunTypeComponentsFactoryMidas_Create(t *testing.T) {
 func TestSovereignRunTypeComponentsFactoryMidas_Close(t *testing.T) {
 	t.Parallel()
 
-	rcf, _ := runType.NewRunTypeComponentsFactory(createCoreComponents())
-	srcf, _ := runType.NewSovereignRunTypeComponentsFactoryMidas(rcf, createSovConfig())
+	srcf, _ := runType.NewSovereignRunTypeComponentsFactoryMidas(createSovRunTypeArgs())
 
 	rc, err := srcf.Create()
 	require.NoError(t, err)
@@ -44,3 +61,4 @@ func TestSovereignRunTypeComponentsFactoryMidas_Close(t *testing.T) {
 
 	require.NoError(t, rc.Close())
 }
+

@@ -11,7 +11,6 @@ import (
 	"github.com/multiversx/mx-chain-go/factory/disabled"
 	"github.com/multiversx/mx-chain-go/fallback"
 	"github.com/multiversx/mx-chain-go/genesis/checking"
-	genesisProcess "github.com/multiversx/mx-chain-go/genesis/process"
 	"github.com/multiversx/mx-chain-go/process"
 	"github.com/multiversx/mx-chain-go/process/block"
 	"github.com/multiversx/mx-chain-go/process/block/bootstrapStorage"
@@ -43,53 +42,42 @@ func NewProcessComponentsFactoryMidas(args ProcessComponentsFactoryArgs) (*proce
 
 	return &processComponentsFactoryMidas{
 		processComponentsFactory: processComponentsFactory{
-			config:                                args.Config,
-			epochConfig:                           args.EpochConfig,
-			prefConfigs:                           args.PrefConfigs,
-			importDBConfig:                        args.ImportDBConfig,
-			economicsConfig:                       args.EconomicsConfig,
-			accountsParser:                        args.AccountsParser,
-			smartContractParser:                   args.SmartContractParser,
-			gasSchedule:                           args.GasSchedule,
-			nodesCoordinator:                      args.NodesCoordinator,
-			data:                                  args.Data,
-			coreData:                              args.CoreData,
-			crypto:                                args.Crypto,
-			state:                                 args.State,
-			network:                               args.Network,
-			bootstrapComponents:                   args.BootstrapComponents,
-			statusComponents:                      args.StatusComponents,
-			requestedItemsHandler:                 args.RequestedItemsHandler,
-			whiteListHandler:                      args.WhiteListHandler,
-			whiteListerVerifiedTxs:                args.WhiteListerVerifiedTxs,
-			maxRating:                             args.MaxRating,
-			systemSCConfig:                        args.SystemSCConfig,
-			importStartHandler:                    args.ImportStartHandler,
-			historyRepo:                           args.HistoryRepo,
-			epochNotifier:                         args.CoreData.EpochNotifier(),
-			statusCoreComponents:                  args.StatusCoreComponents,
-			flagsConfig:                           args.FlagsConfig,
-			txExecutionOrderHandler:               args.TxExecutionOrderHandler,
-			genesisNonce:                          args.GenesisNonce,
-			genesisRound:                          args.GenesisRound,
-			roundConfig:                           args.RoundConfig,
-			runTypeComponents:                     args.RunTypeComponents,
-			shardCoordinatorFactory:               args.ShardCoordinatorFactory,
-			genesisBlockCreatorFactory:            genesisProcess.NewSovereignGenesisBlockCreatorFactoryMidas(),
-			genesisMetaBlockChecker:               args.GenesisMetaBlockChecker,
-			requesterContainerFactoryCreator:      args.RequesterContainerFactoryCreator,
-			incomingHeaderSubscriber:              args.IncomingHeaderSubscriber,
-			interceptorsContainerFactoryCreator:   args.InterceptorsContainerFactoryCreator,
-			shardResolversContainerFactoryCreator: args.ShardResolversContainerFactoryCreator,
-			txPreprocessorCreator:                 args.TxPreProcessorCreator,
-			extraHeaderSigVerifierHolder:          args.ExtraHeaderSigVerifierHolder,
-			outGoingOperationsPool:                args.OutGoingOperationsPool,
-			dataCodec:                             args.DataCodec,
-			topicsChecker:                         args.TopicsChecker,
+			config:                   args.Config,
+			epochConfig:              args.EpochConfig,
+			prefConfigs:              args.PrefConfigs,
+			importDBConfig:           args.ImportDBConfig,
+			economicsConfig:          args.EconomicsConfig,
+			smartContractParser:      args.SmartContractParser,
+			gasSchedule:              args.GasSchedule,
+			nodesCoordinator:         args.NodesCoordinator,
+			data:                     args.Data,
+			coreData:                 args.CoreData,
+			crypto:                   args.Crypto,
+			state:                    args.State,
+			network:                  args.Network,
+			bootstrapComponents:      args.BootstrapComponents,
+			statusComponents:         args.StatusComponents,
+			requestedItemsHandler:    args.RequestedItemsHandler,
+			whiteListHandler:         args.WhiteListHandler,
+			whiteListerVerifiedTxs:   args.WhiteListerVerifiedTxs,
+			maxRating:                args.MaxRating,
+			systemSCConfig:           args.SystemSCConfig,
+			importStartHandler:       args.ImportStartHandler,
+			historyRepo:              args.HistoryRepo,
+			epochNotifier:            args.CoreData.EpochNotifier(),
+			statusCoreComponents:     args.StatusCoreComponents,
+			flagsConfig:              args.FlagsConfig,
+			txExecutionOrderHandler:  args.TxExecutionOrderHandler,
+			genesisNonce:             args.GenesisNonce,
+			genesisRound:             args.GenesisRound,
+			roundConfig:              args.RoundConfig,
+			runTypeComponents:        args.RunTypeComponents,
+			incomingHeaderSubscriber: args.IncomingHeaderSubscriber,
 		},
 	}, nil
 }
 
+// Create will create and return a struct containing process components
 func (pcf *processComponentsFactoryMidas) Create() (*processComponents, error) {
 	currentEpochProvider, err := epochProviders.CreateCurrentEpochProvider(
 		pcf.config,
@@ -120,7 +108,7 @@ func (pcf *processComponentsFactoryMidas) Create() (*processComponents, error) {
 		SingleSigVerifier:            pcf.crypto.BlockSigner(),
 		KeyGen:                       pcf.crypto.BlockSignKeyGen(),
 		FallbackHeaderValidator:      fallbackHeaderValidator,
-		ExtraHeaderSigVerifierHolder: pcf.extraHeaderSigVerifierHolder,
+		ExtraHeaderSigVerifierHolder: pcf.runTypeComponents.ExtraHeaderSigVerifierHolder(),
 	}
 	headerSigVerifier, err := headerCheck.NewHeaderSigVerifier(argsHeaderSig)
 	if err != nil {
@@ -216,7 +204,7 @@ func (pcf *processComponentsFactoryMidas) Create() (*processComponents, error) {
 		return nil, err
 	}
 
-	err = pcf.genesisMetaBlockChecker.SetValidatorRootHashOnGenesisMetaBlock(genesisBlocks[core.MetachainShardId], validatorStatsRootHash)
+	err = pcf.runTypeComponents.GenesisMetaBlockCheckerCreator().SetValidatorRootHashOnGenesisMetaBlock(genesisBlocks[core.MetachainShardId], validatorStatsRootHash)
 	if err != nil {
 		return nil, err
 	}
@@ -465,8 +453,9 @@ func (pcf *processComponentsFactoryMidas) Create() (*processComponents, error) {
 		return nil, errors.New("invalid genesis node price")
 	}
 
+	// TODO: Allow easier customization here?
 	nodesSetupChecker, err := checking.NewNodesSetupCheckerMidas(
-		pcf.accountsParser,
+		pcf.runTypeComponents.AccountsParser(),
 		genesisNodePrice,
 		pcf.coreData.ValidatorPubKeyConverter(),
 		pcf.crypto.BlockSignKeyGen(),
@@ -566,9 +555,8 @@ func (pcf *processComponentsFactoryMidas) Create() (*processComponents, error) {
 		hardforkTrigger:                  hardforkTrigger,
 		processedMiniBlocksTracker:       processedMiniBlocksTracker,
 		esdtDataStorageForApi:            pcf.esdtNftStorage,
-		accountsParser:                   pcf.accountsParser,
+		accountsParser:                   pcf.runTypeComponents.AccountsParser(),
 		receiptsRepository:               receiptsRepository,
 		sentSignaturesTracker:            sentSignaturesTracker,
 	}, nil
 }
-

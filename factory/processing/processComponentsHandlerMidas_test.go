@@ -40,9 +40,9 @@ func TestManagedProcessComponentsMidas_CreateShouldWork(t *testing.T) {
 		t.Skip("this is not a short test")
 	}
 
-	testManagedProcessComponentsCreateShouldWork(t, common.MetachainShardId, componentsMock.GetRunTypeComponents())
-	testManagedProcessComponentsCreateShouldWork(t, 0, componentsMock.GetRunTypeComponents())
-	testManagedProcessComponentsCreateShouldWork(t, 0, componentsMock.GetSovereignRunTypeComponents())
+	testManagedProcessComponentsCreateShouldWork(t, common.MetachainShardId, getRunTypeComponentsMock())
+	testManagedProcessComponentsCreateShouldWork(t, 0, getRunTypeComponentsMock())
+	testManagedProcessComponentsCreateShouldWork(t,  core.SovereignChainShardId, getSovereignRunTypeComponentsMock())
 }
 
 func TestManagedProcessComponentsMidas_Create(t *testing.T) {
@@ -74,7 +74,6 @@ func TestManagedProcessComponentsMidas_Create(t *testing.T) {
 
 		args := createMockProcessComponentsFactoryArgs()
 		componentsMock.SetShardCoordinator(t, args.BootstrapComponents, shardCoordinator)
-		args.RunTypeComponents = componentsMock.GetRunTypeComponents()
 		processComponentsFactory, _ := processComp.NewProcessComponentsFactoryMidas(args)
 		managedProcessComponents, _ := processComp.NewManagedProcessComponentsMidas(processComponentsFactory)
 		_ = managedProcessComponents.Create()
@@ -89,7 +88,6 @@ func TestManagedProcessComponentsMidas_Create(t *testing.T) {
 		shardCoordinator.CurrentShard = 0
 		args := createMockProcessComponentsFactoryArgs()
 		componentsMock.SetShardCoordinator(t, args.BootstrapComponents, shardCoordinator)
-		args.RunTypeComponents = componentsMock.GetRunTypeComponents()
 		processComponentsFactory, _ := processComp.NewProcessComponentsFactoryMidas(args)
 		managedProcessComponents, _ := processComp.NewManagedProcessComponentsMidas(processComponentsFactory)
 		_ = managedProcessComponents.Create()
@@ -100,8 +98,7 @@ func TestManagedProcessComponentsMidas_Create(t *testing.T) {
 	t.Run("sovereign should create sovereign components", func(t *testing.T) {
 		t.Parallel()
 
-		args := createMockProcessComponentsFactoryArgs()
-		args.RunTypeComponents = componentsMock.GetSovereignRunTypeComponents()
+		args := createMockSovereignProcessComponentsFactoryArgs()
 		processComponentsFactory, _ := processComp.NewProcessComponentsFactoryMidas(args)
 		managedProcessComponents, _ := processComp.NewManagedProcessComponentsMidas(processComponentsFactory)
 		_ = managedProcessComponents.Create()

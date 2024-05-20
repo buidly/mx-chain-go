@@ -13,7 +13,7 @@ type systemSCFactoryMidas struct {
 }
 
 // TODO: Update this to correct value depending on address & nonce which deploys this
-var AbstractStakingSCAddress = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 0, 90, 133, 35, 248, 121, 156, 80, 177, 231, 110, 165, 183, 46, 183, 32, 44, 41, 185, 91, 162, 93, 101}
+var AbstractStakingSCAddress = []byte{0, 0, 0, 0, 0, 0, 0, 0, 5, 0, 90, 133, 35, 248, 121, 156, 80, 177, 231, 110, 165, 183, 46, 183, 32, 44, 41, 185, 91, 162, 93, 101}
 
 func NewSystemSCFactoryMidas(args ArgsNewSystemSCFactory) (*systemSCFactoryMidas, error) {
 	if check.IfNil(args.SystemEI) {

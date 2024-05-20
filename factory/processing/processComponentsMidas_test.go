@@ -960,9 +960,7 @@ func TestProcessComponentsFactoryMidas_Create(t *testing.T) {
 	t.Run("should work - shard", func(t *testing.T) {
 		shardCoordinator := sharding.NewSovereignShardCoordinator(core.SovereignChainShardId)
 		processArgs := GetSovereignProcessComponentsFactoryArgsMidas(shardCoordinator)
-		processArgs.RunTypeComponents = GetSovereignRunTypeComponentsMidas()
 		pcf, _ := processComp.NewProcessComponentsFactoryMidas(processArgs)
-
 		require.NotNil(t, pcf)
 
 		instance, err := pcf.Create()
@@ -1044,7 +1042,7 @@ func GetSovereignProcessArgsMidas(
 	)
 
 	initialAccounts := createSovereignAccountsMidas()
-	runTypeComponents := components.GetRunTypeComponentsStub(GetSovereignRunTypeComponentsMidas())
+	runTypeComponents := components.GetRunTypeComponentsStub(GetSovereignRunTypeComponentsMidas()) // TODO:
 	runTypeComponents.AccountParser = &mock.AccountsParserStub{
 		InitialAccountsCalled: func() []genesis.InitialAccountHandler {
 			return initialAccounts
@@ -1079,9 +1077,6 @@ func GetSovereignProcessArgsMidas(
 	processArgs.RunTypeComponents = runTypeComponents
 
 	return processArgs
-
-	// TODO: Where to override this?
-	//GenesisBlockCreatorFactory:            genesisProcess.NewSovereignGenesisBlockCreatorFactoryMidas(),
 }
 
 func createSovereignAccountsMidas() []genesis.InitialAccountHandler {
@@ -1123,7 +1118,7 @@ func createSovereignAccountsMidas() []genesis.InitialAccountHandler {
 var log = logger.GetOrCreate("componentsMock")
 
 func GetSovereignRunTypeComponentsMidas() factory.RunTypeComponentsHolder {
-	sovereignComponentsFactory, _ := runType.NewSovereignRunTypeComponentsFactoryMidas(createSovRunTypeArgsMidas())
+	sovereignComponentsFactory, _ := runType.NewSovereignRunTypeComponentsFactoryMidas(createSovRunTypeArgs())
 	managedRunTypeComponents, err := runType.NewManagedRunTypeComponents(sovereignComponentsFactory)
 	if err != nil {
 		log.Error("getRunTypeComponents NewManagedRunTypeComponents", "error", err.Error())
@@ -1137,8 +1132,8 @@ func GetSovereignRunTypeComponentsMidas() factory.RunTypeComponentsHolder {
 	return managedRunTypeComponents
 }
 
-func createSovRunTypeArgsMidas() runType.ArgsSovereignRunTypeComponents {
-	runTypeComponentsFactory, _ := runType.NewRunTypeComponentsFactory(createArgsRunTypeComponentsMidas())
+func createSovRunTypeArgs() runType.ArgsSovereignRunTypeComponents {
+	runTypeComponentsFactory, _ := runType.NewRunTypeComponentsFactory(createArgsRunTypeComponents())
 
 	return runType.ArgsSovereignRunTypeComponents{
 		RunTypeComponentsFactory: runTypeComponentsFactory,
@@ -1152,7 +1147,7 @@ func createSovRunTypeArgsMidas() runType.ArgsSovereignRunTypeComponents {
 	}
 }
 
-func createArgsRunTypeComponentsMidas() runType.ArgsRunTypeComponents {
+func createArgsRunTypeComponents() runType.ArgsRunTypeComponents {
 	return runType.ArgsRunTypeComponents{
 		CoreComponents: &mockCoreComp.CoreComponentsStub{
 			HasherField:                 &hashingMocks.HasherMock{},
@@ -1172,14 +1167,54 @@ func createArgsRunTypeComponentsMidas() runType.ArgsRunTypeComponents {
 				},
 			},
 		},
-		InitialAccounts: createSovereignAccountsMidas(),
+		InitialAccounts: createAccounts(),
 	}
 }
 
-func getSovConfigMidas() config.SovereignConfig {
-	return config.SovereignConfig{
-		GenesisConfig: config.GenesisConfig{
-			NativeESDT: "WEGLD-ab47da",
+func createAccounts() []genesis.InitialAccountHandler {
+	addrConverter, _ := commonFactory.NewPubkeyConverter(config.PubkeyConfig{
+		Length:          32,
+		Type:            "bech32",
+		SignatureLength: 0,
+		Hrp:             "erd",
+	})
+	acc1 := data.InitialAccount{
+		Address:      "erd1ulhw20j7jvgfgak5p05kv667k5k9f320sgef5ayxkt9784ql0zssrzyhjp",
+		Supply:       big.NewInt(0).Mul(big.NewInt(5000000), big.NewInt(1000000000000000000)),
+		Balance:      big.NewInt(0).Mul(big.NewInt(4997500), big.NewInt(1000000000000000000)),
+		StakingValue: big.NewInt(0).Mul(big.NewInt(2500), big.NewInt(1000000000000000000)),
+		Delegation: &data.DelegationData{
+			Address: "",
+			Value:   big.NewInt(0),
 		},
 	}
+	acc2 := data.InitialAccount{
+		Address:      "erd17c4fs6mz2aa2hcvva2jfxdsrdknu4220496jmswer9njznt22eds0rxlr4",
+		Supply:       big.NewInt(0).Mul(big.NewInt(5000000), big.NewInt(1000000000000000000)),
+		Balance:      big.NewInt(0).Mul(big.NewInt(4997500), big.NewInt(1000000000000000000)),
+		StakingValue: big.NewInt(0).Mul(big.NewInt(2500), big.NewInt(1000000000000000000)),
+		Delegation: &data.DelegationData{
+			Address: "",
+			Value:   big.NewInt(0),
+		},
+	}
+	acc3 := data.InitialAccount{
+		Address:      "erd10d2gufxesrp8g409tzxljlaefhs0rsgjle3l7nq38de59txxt8csj54cd3",
+		Supply:       big.NewInt(0).Mul(big.NewInt(10000000), big.NewInt(1000000000000000000)),
+		Balance:      big.NewInt(0).Mul(big.NewInt(9997500), big.NewInt(1000000000000000000)),
+		StakingValue: big.NewInt(0).Mul(big.NewInt(2500), big.NewInt(1000000000000000000)),
+		Delegation: &data.DelegationData{
+			Address: "",
+			Value:   big.NewInt(0),
+		},
+	}
+
+	acc1Bytes, _ := addrConverter.Decode(acc1.Address)
+	acc1.SetAddressBytes(acc1Bytes)
+	acc2Bytes, _ := addrConverter.Decode(acc2.Address)
+	acc2.SetAddressBytes(acc2Bytes)
+	acc3Bytes, _ := addrConverter.Decode(acc3.Address)
+	acc3.SetAddressBytes(acc3Bytes)
+
+	return []genesis.InitialAccountHandler{&acc1, &acc2, &acc3}
 }

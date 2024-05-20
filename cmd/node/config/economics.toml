@@ -22,7 +22,7 @@
     [[RewardsSettings.RewardsConfigByEpoch]]
     EpochEnable = 0
     LeaderPercentage = 0.1 #fraction of value 0.1 - 10%
-    DeveloperPercentage = 0 #fraction of value 0 - 0%
+    DeveloperPercentage = 0.0 #fraction of value 0 - 0%
     ProtocolSustainabilityPercentage = 0.31 #fraction of value 0.31 - 31% (21% - OURO Pie Distribution; 10% Coding Division; TODO: Only gas fees should go there)
     ProtocolSustainabilityAddress = "erd1gzsug2n6th3qztpvgnzqx640azvqkv5phmktrdq766tzxx0zt4jszw8672"
     TopUpGradientPoint = "20000000" # 20,000,000 POWER (eligible topUp)

@@ -15,7 +15,7 @@
     NodeLimitPercentage = 1.0 #fraction of value 1 - 100%
 
 [ESDTSystemSCConfig]
-    BaseIssuingCost = "5000000000000000000" #5 OURO
+    BaseIssuingCost = "50000000000000000" # 0.05 OURO
     OwnerAddress = "erd1fpkcgel4gcmh8zqqdt043yfcn5tyx8373kg6q2qmkxzu4dqamc0swts65c"
 
 [GovernanceSystemSCConfig]

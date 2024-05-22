@@ -27,8 +27,56 @@
     "owner": "erd1gzsug2n6th3qztpvgnzqx640azvqkv5phmktrdq766tzxx0zt4jszw8672",
     "filename": "./config/genesisContracts/abstract-staking.wasm",
     "vm-type": "0500",
-    "init-parameters": "53544152532d373034373137@465241474d454e54532d373034373137@4f55524f2d643831373166@45415552594e2d643362353731@22b1c8c1227a0000@40a1c42a7a5de2012c2c44c4036aafe8980b3281beecb1b41ed6962319e25d65@00000000000000000500d5ca4a50f499c3d806f9882a570ad1b432e736df5d65@00000000000000000500d5ca4a50f499c3d806f9882a570ad1b432e736df5d65@%validator_sc_address%",
+    "init-parameters": "53544152532d373034373137@465241474d454e54532d373034373137@4f55524f2d643831373166@45415552594e2d646264623761@22b1c8c1227a0000@40a1c42a7a5de2012c2c44c4036aafe8980b3281beecb1b41ed6962319e25d65@00000000000000000500d5ca4a50f499c3d806f9882a570ad1b432e736df5d65@00000000000000000500c010aa5e6399004394592a3496c00b4ad1614fad5d65@%validator_sc_address%",
     "type": "abstract-staking",
+    "version": "0.1.*"
+  },
+  {
+    "owner": "erd1gzsug2n6th3qztpvgnzqx640azvqkv5phmktrdq766tzxx0zt4jszw8672",
+    "filename": "./config/genesisContracts/elite-account-tracker.wasm",
+    "vm-type": "0500",
+    "init-parameters": "",
+    "type": "elite-account-tracker",
+    "version": "0.1.*"
+  },
+  {
+    "owner": "erd1gzsug2n6th3qztpvgnzqx640azvqkv5phmktrdq766tzxx0zt4jszw8672",
+    "filename": "./config/genesisContracts/ouro-factory.wasm",
+    "vm-type": "0500",
+    "init-parameters": "",
+    "type": "ouro-factory",
+    "version": "0.1.*"
+  },
+  {
+    "owner": "erd1gzsug2n6th3qztpvgnzqx640azvqkv5phmktrdq766tzxx0zt4jszw8672",
+    "filename": "./config/genesisContracts/snake-coil.wasm",
+    "vm-type": "0500",
+    "init-parameters": "",
+    "type": "snake-coil",
+    "version": "0.1.*"
+  },
+  {
+    "owner": "erd1gzsug2n6th3qztpvgnzqx640azvqkv5phmktrdq766tzxx0zt4jszw8672",
+    "filename": "./config/genesisContracts/snake-transfer-sc.wasm",
+    "vm-type": "0500",
+    "init-parameters": "",
+    "type": "snake-transfer-sc",
+    "version": "0.1.*"
+  },
+  {
+    "owner": "erd1gzsug2n6th3qztpvgnzqx640azvqkv5phmktrdq766tzxx0zt4jszw8672",
+    "filename": "./config/genesisContracts/snake-vesting.wasm",
+    "vm-type": "0500",
+    "init-parameters": "",
+    "type": "snake-vesting",
+    "version": "0.1.*"
+  },
+  {
+    "owner": "erd1gzsug2n6th3qztpvgnzqx640azvqkv5phmktrdq766tzxx0zt4jszw8672",
+    "filename": "./config/genesisContracts/merkle-proof-nft-staking-sc.wasm",
+    "vm-type": "0500",
+    "init-parameters": "",
+    "type": "merkle-proof-nft-staking-sc",
     "version": "0.1.*"
   }
 ]

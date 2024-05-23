@@ -324,30 +324,7 @@ func (v *validatorSCMidas) stake(args *vmcommon.ContractCallInput) vmcommon.Retu
 	v.activateNewBLSKeysMidas(registrationData, blsKeys, newKeys, &validatorConfig, args, validatorAddress)
 
 	err = v.saveRegistrationData(validatorAddress, registrationData)
-
-	// TODO: Remove after debugging
-	entry := &vmcommon.LogEntry{
-		Identifier: []byte(args.Function),
-		Address:    args.RecipientAddr,
-		Topics: [][]byte{
-			[]byte("saved registration data"),
-			validatorAddress,
-			registrationData.RewardAddress,
-			registrationData.TotalStakeValue.Bytes(),
-		},
-	}
-	v.eei.AddLogEntry(entry)
-
 	if err != nil {
-		entry := &vmcommon.LogEntry{
-			Identifier: []byte(args.Function),
-			Address:    args.RecipientAddr,
-			Topics: [][]byte{
-				[]byte("could not save registration data"),
-			},
-		}
-		v.eei.AddLogEntry(entry)
-
 		v.eei.AddReturnMessage("cannot save registration data: error " + err.Error())
 		return vmcommon.UserError
 	}

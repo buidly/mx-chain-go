@@ -525,7 +525,7 @@ func (v *validatorSCMidas) unStake(args *vmcommon.ContractCallInput) vmcommon.Re
 		return returnCode
 	}
 
-	numSuccessFromActive, numSuccessFromWaiting := v.unStakeNodesFromStakingSC(blsKeys, registrationData)
+	_, _ = v.unStakeNodesFromStakingSC(blsKeys, registrationData)
 	if !v.enableEpochsHandler.IsFlagEnabled(common.StakingV2Flag) {
 		// unStakeV1 returns from this point
 		return vmcommon.Ok
@@ -542,13 +542,10 @@ func (v *validatorSCMidas) unStake(args *vmcommon.ContractCallInput) vmcommon.Re
 	if registrationData.NumRegistered == 0 {
 		unStakedEpoch = 0
 	}
-
-	if numSuccessFromActive+numSuccessFromWaiting > 0 {
-		returnCode = v.processUnStakeValue(registrationData, difference, unStakedEpoch)
-		if returnCode != vmcommon.Ok {
+	returnCode = v.processUnStakeValue(registrationData, difference, unStakedEpoch)
+	if returnCode != vmcommon.Ok {
 			return returnCode
 		}
-	}
 
 	if registrationData.NumRegistered > 0 && registrationData.TotalStakeValue.Cmp(v.minDeposit) < 0 {
 		v.eei.AddReturnMessage("cannot unStake tokens, the validator would remain without min deposit, nodes are still active")

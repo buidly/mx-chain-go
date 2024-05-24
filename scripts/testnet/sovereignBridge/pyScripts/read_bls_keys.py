@@ -12,7 +12,8 @@ def read_and_concatenate_pubkeys(file_path):
 
 
 def main():
-    file_path = "~/MultiversX/testnet/node/config/nodesSetup.json"
+    dirname = os.path.dirname(__file__)
+    file_path = os.path.join(dirname, '../../../../../midas-testnet/node/config/nodesSetup.json')
     print(read_and_concatenate_pubkeys(os.path.expanduser(file_path)))
 
 

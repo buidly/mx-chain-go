@@ -1,9 +1,12 @@
 MULTISIG_VERIFIER_ADDRESS=$(mxpy data load --partition=${CHAIN_ID} --key=address-multisig-verifier-contract)
 
 deployMultisigVerifierContract() {
-    manualUpdateConfigFile #update config file
+    #manualUpdateConfigFile #update config file
 
-    BLS_PUB_KEYS=$(python3 $SCRIPT_PATH/pyScripts/read_bls_keys.py)
+    BLS_PUB_KEYS=$(python3 $SCRIPT_PATH/pyScripts/read_bls_keys.py $TESTNETDIR)
+
+    echo 'Bls Pub Keys'
+    echo $BLS_PUB_KEYS
 
     mxpy --verbose contract deploy \
         --bytecode=$(eval echo ${MULTISIG_VERIFIER_WASM}) \
@@ -25,8 +28,8 @@ deployMultisigVerifierContract() {
 
     local ADDRESS=$(mxpy data parse --file="${SCRIPT_PATH}/deploy-multisig-verifier.interaction.json"  --expression="data['contractAddress']")
     mxpy data store --partition=${CHAIN_ID} --key=address-multisig-verifier-contract --value=${ADDRESS}
-    MULTISIG_VERIFIER_ADDRESS=$(mxpy data load --partition=${CHAIN_ID} --key=address-multisig-verifier-contract)
-    echo -e "Multisig Verifier contract: ${ADDRESS}"
+    export MULTISIG_VERIFIER_ADDRESS=$(mxpy data load --partition=${CHAIN_ID} --key=address-multisig-verifier-contract)
+    echo -e "Multisig Verifier contract: ${MULTISIG_VERIFIER_ADDRESS}"
 }
 
 upgradeMultisigVerifierContract() {

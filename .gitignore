@@ -38,5 +38,8 @@ integrationTests/multiShard/endOfEpoch/startInEpoch/Static
 
 cmd/keygenerator/**
 cmd/termui/**
-cmd/sovereignnode/config/*
 cmd/sovereignnode/sovereignnode
+
+scripts/testnet/wallet.pem
+scripts/testnet/**/mxpy.data-storage.json
+scripts/testnet/**/*.interaction.json

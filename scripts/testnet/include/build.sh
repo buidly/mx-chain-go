@@ -93,7 +93,7 @@ buildProxy() {
   popd
 
   pushd $TESTNETDIR
-  mv $PROXY ./proxy/
+  mv $PROXY_DIR ./proxy/
   echo "Proxy executable built."
   popd
 }

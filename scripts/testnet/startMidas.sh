@@ -35,7 +35,7 @@ deployMultisigVerifierContract
 setEsdtSafeAddress
 setMultisigAddress
 
-echo 'Starting Bridge Service' $WALLET $PROXY $ESDT_SAFE_ADDRESS $MULTISIG_VERIFIER_ADDRESS
+echo 'Starting Bridge Service' $WALLET $PROXY $ESDT_SAFE_ADDRESS $MULTISIG_VERIFIER_ADDRESS $TESTNETDIR
 updateAndStartBridgeService
 
 setSovereignBridgeAddress

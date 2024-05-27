@@ -22,7 +22,7 @@ displayContracts() {
 }
 
 updateAndStartBridgeService() {
-    python3 $SCRIPT_PATH/pyScripts/bridge_service.py $WALLET $PROXY $ESDT_SAFE_ADDRESS $MULTISIG_VERIFIER_ADDRESS
+    python3 $SCRIPT_PATH/pyScripts/bridge_service.py $WALLET $PROXY $ESDT_SAFE_ADDRESS $MULTISIG_VERIFIER_ADDRESS $TESTNETDIR
 }
 
 updateNotifierNotarizationRound() {

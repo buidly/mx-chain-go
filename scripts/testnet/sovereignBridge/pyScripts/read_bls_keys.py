@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 
 
 def read_and_concatenate_pubkeys(file_path):
@@ -12,8 +13,9 @@ def read_and_concatenate_pubkeys(file_path):
 
 
 def main():
-    dirname = os.path.dirname(__file__)
-    file_path = os.path.join(dirname, '../../../../../midas-testnet/node/config/nodesSetup.json')
+    sovereign_path = sys.argv[1]
+
+    file_path = os.path.join(sovereign_path, 'node/config/nodesSetup.json')
     print(read_and_concatenate_pubkeys(os.path.expanduser(file_path)))
 
 

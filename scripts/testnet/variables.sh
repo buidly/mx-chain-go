@@ -1,3 +1,10 @@
+# New Variables for Midas
+export WALLET="$MULTIVERSXTESTNETSCRIPTSDIR/wallet.pem"
+export ESDT_SAFE_ADDRESS="erd1qqqqqqqqqqqqqpgqh6jre0t8tc0cw6v6dyaftmc5m83cshget4jslxur72"
+
+export ESDT_SAFE_ADDRESS_SOVEREIGN="erd1qqqqqqqqqqqqqpgqy6zpv6w9u7hw2q3y4jqr5aqgdpq95vwat4jsa27nr3"
+export FEE_MARKET_ADDRESS_SOVEREIGN="erd1qqqqqqqqqqqqqpgqppq64qjs57e3gvy0th60r78xzyv0mvfyt4jslkg5m9"
+
 # These paths must be absolute
 
 # METASHARD_ID will be used to identify a shard ID as metachain
@@ -136,7 +143,7 @@ fi
 
 # Path to mx-chain-proxy-go, branch: master. Default: near mx-chain-go.
 export PROXYDIR="$(dirname $MULTIVERSXDIR)/mx-chain-proxy-go/cmd/proxy"
-export PROXY=$PROXYDIR/proxy    # Leave unchanged.
+export PROXY_DIR=$PROXYDIR/proxy    # Leave unchanged.
 
 export PORT_PROXY="7950"
 export PROXY_DELAY=10

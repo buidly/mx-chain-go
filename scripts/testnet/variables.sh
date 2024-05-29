@@ -110,7 +110,7 @@ export ALWAYS_NEW_APP_VERSION=0
 export ALWAYS_UPDATE_CONFIGS=0
 
 # IP of the seednode
-export SEEDNODE_IP="127.0.0.1"
+export SEEDNODE_IP="0.0.0.0"
 
 # Ports used by the Nodes
 export PORT_SEEDNODE="9999"

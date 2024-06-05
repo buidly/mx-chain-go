@@ -10,7 +10,7 @@
     BleedPercentagePerRound = 0.00001
     MaxNumberOfNodesForStake = 64
     UnJailValue = "250000000000000000" #2.5 ELITE-AURYN, not actually used since this is checked in Abstract Staking
-    ActivateBLSPubKeyMessageVerification = false
+    ActivateBLSPubKeyMessageVerification = true
     StakeLimitPercentage = 1.0 #fraction of value 1 - 100%, for the time being no stake limit
     NodeLimitPercentage = 1.0 #fraction of value 1 - 100%
 

@@ -27,6 +27,8 @@ WALLET_ADDRESS=$(echo "$(head -n 1 $(eval echo ${WALLET}))" | sed -n 's/.* for \
 
 echo 'Wallet address:'
 echo $WALLET_ADDRESS
+echo 'Shard of address'
+echo $(getShardOfAddress)
 
 ##############################################
 # Partial from sovereignBridge sovereignDeploy

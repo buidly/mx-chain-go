@@ -101,7 +101,7 @@ func (d *delegationManagerMidas) Execute(args *vmcommon.ContractCallInput) vmcom
 
 	switch args.Function {
 	case core.SCDeployInitFunctionName:
-		return d.init(args)
+		return d.init(args) // TODO: delegationManagementData doesn't seem to be properly saved?
 	case "createNewDelegationContract":
 		return d.createNewDelegationContract(args)
 	case "getAllContractAddresses":

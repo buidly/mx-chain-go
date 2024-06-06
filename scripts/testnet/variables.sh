@@ -10,9 +10,6 @@ export FEE_MARKET_ADDRESS_SOVEREIGN="erd1qqqqqqqqqqqqqpgqppq64qjs57e3gvy0th60r78
 # METASHARD_ID will be used to identify a shard ID as metachain
 export METASHARD_ID=4294967295
 
-# ROUND_DURATION_IN_MS is the duration in milliseconds for one round
-export ROUND_DURATION_IN_MS=3000
-
 # Path to mx-chain-go. Determined automatically. Do not change.
 export MULTIVERSXDIR=$(dirname $(dirname $MULTIVERSXTESTNETSCRIPTSDIR))
 
@@ -86,6 +83,9 @@ export META_VALIDATORCOUNT=0
 export META_OBSERVERCOUNT=0
 export META_CONSENSUS_SIZE=$META_VALIDATORCOUNT
 
+# ROUND_DURATION_IN_MS is the duration in milliseconds for one round
+export ROUND_DURATION_IN_MS=3000
+
 # MULTI_KEY_NODES if set to 1, one observer will be generated on each shard that will handle all generated keys
 export MULTI_KEY_NODES=0
 
@@ -128,6 +128,7 @@ export USETMUX=1
 
 # Log level for the logger in the Node.
 export LOGLEVEL="*:DEBUG"
+#export LOGLEVEL="*:INFO"
 
 
 if [ "$TESTNETMODE" == "debug" ]; then

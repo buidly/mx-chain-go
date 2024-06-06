@@ -127,6 +127,11 @@ copySovereignNodeConfig() {
   cp $SOVEREIGNNODEDIR/config/prefs.toml ./node/config
   cp $SOVEREIGNNODEDIR/config/sovereignConfig.toml ./node/config
 
+  cp $SOVEREIGNNODEDIR/config/genesisSmartContracts.json ./node/config
+  mkdir ./node/config/genesisContracts -p
+  cp $SOVEREIGNNODEDIR/config/genesisContracts/*.* ./node/config/genesisContracts
+  cp $SOVEREIGNNODEDIR/config/systemSmartContractsConfig.toml ./node/config
+
   echo "Configuration files copied from the Sovereign Node to the working directories of the executables."
   popd
 }
@@ -141,7 +146,7 @@ updateNodeConfig() {
   rm p2p_edit.toml
 
   cp nodesSetup.json nodesSetup_edit.json
-  
+
   let startTime="$(date +%s) + $GENESIS_DELAY"
   updateJSONValue nodesSetup_edit.json "startTime" "$startTime"
 
@@ -241,7 +246,7 @@ updateProxyConfig() {
 
   # Truncate config.toml before the [[Observers]] list
   sed -i -n '/\[\[Observers\]\]/q;p' config_edit.toml
-  
+
   updateTOMLValue config_edit.toml "ServerPort" $PORT_PROXY
   generateProxyObserverList config_edit.toml
 

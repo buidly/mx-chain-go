@@ -1,41 +1,41 @@
 [StakingSystemSCConfig]
-    GenesisNodePrice = "20000" #20000 POWER
-    MinStakeValue = "1" #1 POWER
-    MinUnstakeTokensValue = "1" #1 POWER
+    GenesisNodePrice = "2500000000000000000000" #2.5K eGLD
+    MinStakeValue = "100000000000000000000" #100 eGLD
+    MinUnstakeTokensValue = "10000000000000000000" #10eGLD
     UnBondPeriod = 250
     UnBondPeriodInEpochs = 1
-    MinStepValue = "1" #1 POWER
+    MinStepValue = "100000000000000000000"
     NumRoundsWithoutBleed = 100
     MaximumPercentageToBleed = 0.5
     BleedPercentagePerRound = 0.00001
     MaxNumberOfNodesForStake = 64
-    UnJailValue = "250000000000000000" #2.5 ELITE-AURYN, not actually used since this is checked in Abstract Staking
+    UnJailValue = "2500000000000000000" #0.1% of genesis node price
     ActivateBLSPubKeyMessageVerification = true
     StakeLimitPercentage = 1.0 #fraction of value 1 - 100%, for the time being no stake limit
-    NodeLimitPercentage = 1.0 #fraction of value 1 - 100%
+    NodeLimitPercentage = 0.1 #fraction of value 0.1 - 10%
 
 [ESDTSystemSCConfig]
-    BaseIssuingCost = "50000000000000000" # 0.05 OURO
+    BaseIssuingCost = "5000000000000000000" #5 eGLD
     OwnerAddress = "erd1fpkcgel4gcmh8zqqdt043yfcn5tyx8373kg6q2qmkxzu4dqamc0swts65c"
 
 [GovernanceSystemSCConfig]
     OwnerAddress = "erd1vxy22x0fj4zv6hktmydg8vpfh6euv02cz4yg0aaws6rrad5a5awqgqky80" #should use a multisign contract instead of a wallet address
     [GovernanceSystemSCConfig.V1]
         NumNodes           = 500
-        ProposalCost       = "5000000000000000000" #5 OURO
+        ProposalCost       = "5000000000000000000" #5 eGLD
         MinQuorum          = 400
         MinPassThreshold   = 300
         MinVetoThreshold   = 50
     [GovernanceSystemSCConfig.Active]
-        ProposalCost       = "1000000000000000000000" #1000 OURO
-        LostProposalFee    = "10000000000000000000"   #10 OURO
+        ProposalCost       = "1000000000000000000000" #1000 eGLD
+        LostProposalFee    = "10000000000000000000"   #10 eGLD
         MinQuorum          = 0.2  #fraction of value 0.2  - 20%
         MinPassThreshold   = 0.5  #fraction of value 0.5  - 50%
         MinVetoThreshold   = 0.33 #fraction of value 0.33 - 33%
 
 [DelegationManagerSystemSCConfig]
-    MinCreationDeposit = "10000" #10000 POWER
-    MinStakeAmount = "1" #1 POWER
+    MinCreationDeposit = "1250000000000000000000" #1.25K eGLD
+    MinStakeAmount = "1000000000000000000" #1 eGLD
     ConfigChangeAddress = "erd1vxy22x0fj4zv6hktmydg8vpfh6euv02cz4yg0aaws6rrad5a5awqgqky80" #should use a multisign contract instead of a wallet address
 
 [DelegationSystemSCConfig]
@@ -44,7 +44,7 @@
 
 # Changing this config is not backwards compatible
 [SoftAuctionConfig]
-    TopUpStep = "1" # 1 POWER
-    MinTopUp = "1" # 1 POWER
-    MaxTopUp = "320000000" # 320,000,000 POWER
+    TopUpStep = "10000000000000000000" # 10 EGLD
+    MinTopUp = "1000000000000000000" # 1 EGLD should be minimum
+    MaxTopUp = "32000000000000000000000000" # 32 mil EGLD
     MaxNumberOfIterations = 100000 # 100k max number of iterations for soft auction config

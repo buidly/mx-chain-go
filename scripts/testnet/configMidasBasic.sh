@@ -19,5 +19,7 @@ updateGenesisMidas() {
 echo 'Running config.sh...'
 ./config.sh
 
+copySovereignNodeConfig
+
 echo 'Updating genesis.json file for Midas'
 updateGenesisMidas

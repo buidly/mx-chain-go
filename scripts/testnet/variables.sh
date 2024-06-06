@@ -128,6 +128,7 @@ export USETMUX=1
 
 # Log level for the logger in the Node.
 export LOGLEVEL="*:DEBUG"
+#export LOGLEVEL="*:INFO"
 
 
 if [ "$TESTNETMODE" == "debug" ]; then

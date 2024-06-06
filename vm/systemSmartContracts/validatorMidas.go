@@ -519,6 +519,7 @@ func (v *validatorSCMidas) unStake(args *vmcommon.ContractCallInput) vmcommon.Re
 	if registrationData.NumRegistered == 0 {
 		unStakedEpoch = 0
 	}
+	// TODO: If DelegationManagerEnableEpoch is enabled, then the function `getMinUnStakeTokensValue` calls `getDelegationManagement` which fails for some reason
 	returnCode = v.processUnStakeValue(registrationData, difference, unStakedEpoch)
 	if returnCode != vmcommon.Ok {
 			return returnCode

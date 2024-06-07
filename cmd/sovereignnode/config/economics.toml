@@ -30,7 +30,7 @@
 
 [FeeSettings]
     GasLimitSettings = [
-        {EnableEpoch = 0, MaxGasLimitPerBlock = "3000000000", MaxGasLimitPerMiniBlock = "500000000", MaxGasLimitPerMetaBlock = "30000000000", MaxGasLimitPerMetaMiniBlock = "500000000", MaxGasLimitPerTx = "600000000", MinGasLimit = "50000", ExtraGasLimitGuardedTx  = "50000"},
+        {EnableEpoch = 0, MaxGasLimitPerBlock = "1200000000", MaxGasLimitPerMiniBlock = "250000000", MaxGasLimitPerMetaBlock = "1200000000", MaxGasLimitPerMetaMiniBlock = "250000000", MaxGasLimitPerTx = "600000000", MinGasLimit = "50000", ExtraGasLimitGuardedTx  = "50000"},
     ]
     MinGasPrice             = "1000000000" #will yield min tx fee of 0.00005 OURO
     GasPriceModifier        = 0.01

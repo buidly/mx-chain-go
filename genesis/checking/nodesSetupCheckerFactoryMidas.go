@@ -10,7 +10,7 @@ func NewNodesSetupCheckerFactoryMidas() *nodesSetupCheckerFactoryMidas {
 
 // CreateNodesSetupChecker creates a new nodes setup checker
 func (f *nodesSetupCheckerFactoryMidas) CreateNodesSetupChecker(args ArgsNodesSetupChecker) (NodesSetupChecker, error) {
-	return NewNodesSetupChecker(args)
+	return NewNodesSetupCheckerMidas(args)
 }
 
 // IsInterfaceNil checks if the underlying pointer is nil

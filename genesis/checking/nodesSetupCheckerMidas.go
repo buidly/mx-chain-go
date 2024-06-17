@@ -7,9 +7,7 @@ import (
 	"github.com/multiversx/mx-chain-go/sharding/nodesCoordinator"
 	"math/big"
 
-	"github.com/multiversx/mx-chain-core-go/core"
 	"github.com/multiversx/mx-chain-core-go/core/check"
-	crypto "github.com/multiversx/mx-chain-crypto-go"
 	"github.com/multiversx/mx-chain-go/genesis"
 )
 
@@ -18,35 +16,30 @@ type nodeSetupCheckerMidas struct {
 }
 
 // NewNodesSetupChecker will create a node setup checker able to check the initial nodes against the provided genesis values
-func NewNodesSetupCheckerMidas(
-	accountsParser genesis.AccountsParser,
-	initialNodePrice *big.Int,
-	validatorPubkeyConverter core.PubkeyConverter,
-	keyGenerator crypto.KeyGenerator,
-) (*nodeSetupCheckerMidas, error) {
-	if check.IfNil(accountsParser) {
+func NewNodesSetupCheckerMidas(args ArgsNodesSetupChecker) (*nodeSetupCheckerMidas, error) {
+	if check.IfNil(args.AccountsParser) {
 		return nil, genesis.ErrNilAccountsParser
 	}
-	if initialNodePrice == nil {
+	if args.InitialNodePrice == nil {
 		return nil, genesis.ErrNilInitialNodePrice
 	}
-	if initialNodePrice.Cmp(big.NewInt(minimumAcceptedNodePrice)) < 0 {
+	if args.InitialNodePrice.Cmp(big.NewInt(minimumAcceptedNodePrice)) < 0 {
 		return nil, fmt.Errorf("%w, minimum accepted is %d",
 			genesis.ErrInvalidInitialNodePrice, minimumAcceptedNodePrice)
 	}
-	if check.IfNil(validatorPubkeyConverter) {
+	if check.IfNil(args.ValidatorPubKeyConverter) {
 		return nil, genesis.ErrNilPubkeyConverter
 	}
-	if check.IfNil(keyGenerator) {
+	if check.IfNil(args.KeyGenerator) {
 		return nil, genesis.ErrNilKeyGenerator
 	}
 
 	return &nodeSetupCheckerMidas{
 		nodeSetupChecker: nodeSetupChecker{
-			accountsParser:           accountsParser,
-			initialNodePrice:         initialNodePrice,
-			validatorPubkeyConverter: validatorPubkeyConverter,
-			keyGenerator:             keyGenerator,
+			accountsParser:           args.AccountsParser,
+			initialNodePrice:         args.InitialNodePrice,
+			validatorPubkeyConverter: args.ValidatorPubKeyConverter,
+			keyGenerator:             args.KeyGenerator,
 		},
 	}, nil
 }

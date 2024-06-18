@@ -17,5 +17,5 @@ func TestNodesSetupCheckerFactoryMidas_CreateNodesSetupChecker(t *testing.T) {
 	args := createArgs()
 	nodesSetupChecker, err := factory.CreateNodesSetupChecker(args)
 	require.Nil(t, err)
-	require.Equal(t, fmt.Sprintf("%T", nodesSetupChecker), "*checking.nodeSetupChecker")
+	require.Equal(t, fmt.Sprintf("%T", nodesSetupChecker), "*checking.nodeSetupCheckerMidas")
 }

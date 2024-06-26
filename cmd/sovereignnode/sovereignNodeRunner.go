@@ -1640,9 +1640,9 @@ func (snr *sovereignNodeRunner) CreateManagedRunTypeComponents(coreComponents ma
 		return nil, err
 	}
 
-	sovereignRunTypeComponentsFactory, err := runType.NewSovereignRunTypeComponentsFactory(*argsSovRunType)
+	sovereignRunTypeComponentsFactory, err := runType.NewSovereignRunTypeComponentsFactoryMidas(*argsSovRunType)
 	if err != nil {
-		return nil, fmt.Errorf("NewSovereignRunTypeComponentsFactory failed: %w", err)
+		return nil, fmt.Errorf("NewSovereignRunTypeComponentsFactoryMidas failed: %w", err)
 	}
 
 	managedRunTypeComponents, err := runType.NewManagedRunTypeComponents(sovereignRunTypeComponentsFactory)

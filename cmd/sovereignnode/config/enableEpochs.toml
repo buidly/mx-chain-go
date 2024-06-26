@@ -53,10 +53,10 @@
     StakeEnableEpoch = 0
 
     # StakingV2EnableEpoch represents the epoch when staking v2 is enabled
-    StakingV2EnableEpoch = 1
+    StakingV2EnableEpoch = 0
 
     # DoubleKeyProtectionEnableEpoch represents the epoch when the double key protection will be enabled
-    DoubleKeyProtectionEnableEpoch = 1
+    DoubleKeyProtectionEnableEpoch = 0
 
     # ESDTEnableEpoch represents the epoch when ESDT is enabled
     ESDTEnableEpoch = 0
@@ -70,7 +70,7 @@
 
     # DelegationSmartContractEnableEpoch represents the epoch when delegation smart contract is enabled
     # epoch should not be 0
-    DelegationSmartContractEnableEpoch = 1
+    DelegationSmartContractEnableEpoch = 0
 
     # CorrectLastUnjailedEnableEpoch represents the epoch when the fix regaring the last unjailed node should apply
     CorrectLastUnjailedEnableEpoch = 1

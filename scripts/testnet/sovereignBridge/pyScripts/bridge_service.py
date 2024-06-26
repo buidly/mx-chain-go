@@ -47,6 +47,7 @@ def main():
     proxy = sys.argv[2]
     esdt_safe_address = sys.argv[3]
     multisig_address = sys.argv[4]
+    sovereign_path = sys.argv[5]
 
     current_path = os.getcwd()
     project = 'mx-chain-go'
@@ -63,8 +64,8 @@ def main():
     updated_lines = update_env(updated_lines, "MULTIVERSX_PROXY", os.path.expanduser(proxy))
     updated_lines = update_env(updated_lines, "MULTI_SIG_SC_ADDRESS", multisig_address)
     updated_lines = update_env(updated_lines, "ESDT_SAFE_SC_ADDRESS", esdt_safe_address)
-    updated_lines = update_env(updated_lines, "CERT_FILE", os.path.expanduser("~/MultiversX/testnet/node/config/certificate.crt"))
-    updated_lines = update_env(updated_lines, "CERT_PK_FILE", os.path.expanduser("~/MultiversX/testnet/node/config/private_key.pem"))
+    updated_lines = update_env(updated_lines, "CERT_FILE", os.path.expanduser(sovereign_path + "/node/config/certificate.crt"))
+    updated_lines = update_env(updated_lines, "CERT_PK_FILE", os.path.expanduser(sovereign_path + "/node/config/private_key.pem"))
 
     with open(env_path, 'w') as file:
         file.writelines(updated_lines)

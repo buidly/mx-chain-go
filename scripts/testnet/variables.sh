@@ -1,3 +1,10 @@
+# New Variables for Midas
+export WALLET="$MULTIVERSXTESTNETSCRIPTSDIR/wallet.pem"
+export ESDT_SAFE_ADDRESS="erd1qqqqqqqqqqqqqpgqh6jre0t8tc0cw6v6dyaftmc5m83cshget4jslxur72"
+
+export ESDT_SAFE_ADDRESS_SOVEREIGN="erd1qqqqqqqqqqqqqpgqy6zpv6w9u7hw2q3y4jqr5aqgdpq95vwat4jsa27nr3"
+export FEE_MARKET_ADDRESS_SOVEREIGN="erd1qqqqqqqqqqqqqpgqppq64qjs57e3gvy0th60r78xzyv0mvfyt4jslkg5m9"
+
 # These paths must be absolute
 
 # METASHARD_ID will be used to identify a shard ID as metachain
@@ -17,12 +24,12 @@ export USE_TXGEN=0
 # Enable the Elasticsearch data indexing. Will run a Docker image containing an Elasticsearch cluster, on port 9200.
 # It will also change the external.toml files for observers, so they can index data into it.
 # Docker must be managed as a non-root user: https://docs.docker.com/engine/install/linux-postinstall/
-export USE_ELASTICSEARCH=0
+export USE_ELASTICSEARCH=1
 
 # Path where the testnet will be instantiated. This folder is assumed to not
 # exist, but it doesn't matter if it already does. It will be created if not,
 # anyway.
-export TESTNETDIR="$HOME/MultiversX/testnet"
+export TESTNETDIR="$(dirname $MULTIVERSXDIR)/midas-testnet"
 
 # Path to mx-chain-deploy-go, branch: master. Default: near mx-chain-go.
 export CONFIGGENERATORDIR="$(dirname $MULTIVERSXDIR)/mx-chain-deploy-go/cmd/filegen"
@@ -77,7 +84,7 @@ export META_OBSERVERCOUNT=0
 export META_CONSENSUS_SIZE=$META_VALIDATORCOUNT
 
 # ROUND_DURATION_IN_MS is the duration in milliseconds for one round
-export ROUND_DURATION_IN_MS=6000
+export ROUND_DURATION_IN_MS=3000
 
 # MULTI_KEY_NODES if set to 1, one observer will be generated on each shard that will handle all generated keys
 export MULTI_KEY_NODES=0
@@ -100,10 +107,10 @@ export ALWAYS_NEW_APP_VERSION=0
 # ALWAYS_UPDATE_CONFIGS will re-generate configs (toml + json) each time ./start.sh
 # Set this variable to 0 when testing bootstrap from storage or other edge cases where you do not want a fresh new config
 # each time.
-export ALWAYS_UPDATE_CONFIGS=1
+export ALWAYS_UPDATE_CONFIGS=0
 
 # IP of the seednode
-export SEEDNODE_IP="127.0.0.1"
+export SEEDNODE_IP="0.0.0.0"
 
 # Ports used by the Nodes
 export PORT_SEEDNODE="9999"
@@ -121,6 +128,7 @@ export USETMUX=1
 
 # Log level for the logger in the Node.
 export LOGLEVEL="*:DEBUG"
+#export LOGLEVEL="*:INFO"
 
 
 if [ "$TESTNETMODE" == "debug" ]; then
@@ -136,7 +144,7 @@ fi
 
 # Path to mx-chain-proxy-go, branch: master. Default: near mx-chain-go.
 export PROXYDIR="$(dirname $MULTIVERSXDIR)/mx-chain-proxy-go/cmd/proxy"
-export PROXY=$PROXYDIR/proxy    # Leave unchanged.
+export PROXY_DIR=$PROXYDIR/proxy    # Leave unchanged.
 
 export PORT_PROXY="7950"
 export PROXY_DELAY=10

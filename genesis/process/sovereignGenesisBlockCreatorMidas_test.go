@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"github.com/multiversx/mx-chain-go/vm/factory"
+	"github.com/multiversx/mx-chain-go/vm/systemSmartContracts"
 	"math"
 	"math/big"
 	"testing"
@@ -35,7 +36,7 @@ import (
 
 func createSovereignGenesisBlockCreatorMidas(t *testing.T) (ArgsGenesisBlockCreator, *sovereignGenesisBlockCreatorMidas) {
 	arg := createSovereignMockArgument(t, "testdata/genesisTest1.json", &mock.InitialNodesHandlerStub{}, big.NewInt(22000))
-	arg.ShardCoordinator = sharding.NewSovereignShardCoordinator(core.SovereignChainShardId)
+	arg.ShardCoordinator = sharding.NewSovereignShardCoordinator()
 	arg.DNSV2Addresses = []string{"00000000000000000500761b8c4a25d3979359223208b412285f635e71300102"}
 
 	trieStorageManagers := createTrieStorageManagers()
@@ -297,12 +298,7 @@ func TestSovereignGenesisBlockCreatorMidas_setSovereignStakedDataMidas(t *testin
 func TestSovereignGenesisBlockCreatorMidas_InitSystemAccountCalled(t *testing.T) {
 	t.Parallel()
 
-	arg := createMockArgument(t, "testdata/genesisTest1.json", &mock.InitialNodesHandlerStub{}, big.NewInt(22000))
-	arg.ShardCoordinator = sharding.NewSovereignShardCoordinator(core.SovereignChainShardId)
-	arg.DNSV2Addresses = []string{"00000000000000000500761b8c4a25d3979359223208b412285f635e71300102"}
-
-	gbc, _ := NewGenesisBlockCreator(arg)
-	sgbc, _ := NewSovereignGenesisBlockCreatorMidas(gbc)
+	arg, sgbc := createSovereignGenesisBlockCreatorMidas(t)
 	require.NotNil(t, sgbc)
 
 	acc, err := arg.Accounts.GetExistingAccount(core.SystemAccountAddress)
@@ -315,4 +311,27 @@ func TestSovereignGenesisBlockCreatorMidas_InitSystemAccountCalled(t *testing.T)
 	acc, err = arg.Accounts.GetExistingAccount(core.SystemAccountAddress)
 	require.NotNil(t, acc)
 	require.Nil(t, err)
+}
+
+func TestSovereignGenesisBlockCreatorMidas_InitSystemSCs(t *testing.T) {
+	t.Parallel()
+
+	arg, sgbc := createSovereignGenesisBlockCreatorMidas(t)
+	require.NotNil(t, sgbc)
+
+	_, err := sgbc.CreateGenesisBlocks()
+	require.Nil(t, err)
+
+	accountsDB := arg.Accounts
+
+	// Check delegation manager is initialized
+	val := retrieveAccValue(t, accountsDB, vm.DelegationManagerSCAddress, []byte("delegationContracts"))
+	delegationList := &systemSmartContracts.DelegationContractList{}
+	err = arg.Core.InternalMarshalizer().Unmarshal(delegationList, val)
+	require.Nil(t, err)
+	require.Equal(t, [][]byte{vm.FirstDelegationSCAddress}, delegationList.Addresses)
+
+	// Check governance manager is initialized
+	val = retrieveAccValue(t, accountsDB, vm.GovernanceSCAddress, []byte("owner"))
+	require.Equal(t, vm.GovernanceSCAddress, val)
 }

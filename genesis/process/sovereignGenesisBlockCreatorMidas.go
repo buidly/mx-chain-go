@@ -117,7 +117,12 @@ func createSovereignShardGenesisBlockMidas(
 		return nil, nil, nil, err
 	}
 
-	metaProcessor, err := createProcessorsForMetaGenesisBlockMidas(arg, sovereignGenesisConfig, createGenesisRoundConfig(arg.RoundConfig))
+	metaProcessor, err := createProcessorsForMetaGenesisBlock(arg, sovereignGenesisConfig, createGenesisRoundConfig(arg.RoundConfig))
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	err = initSystemSCs(shardProcessors.vmContainer, arg.Accounts)
 	if err != nil {
 		return nil, nil, nil, err
 	}

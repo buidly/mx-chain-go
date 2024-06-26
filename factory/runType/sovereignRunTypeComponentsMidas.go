@@ -6,6 +6,7 @@ import (
 	requesterscontainer "github.com/multiversx/mx-chain-go/dataRetriever/factory/requestersContainer"
 	"github.com/multiversx/mx-chain-go/dataRetriever/factory/resolverscontainer"
 	"github.com/multiversx/mx-chain-go/genesis"
+	"github.com/multiversx/mx-chain-go/genesis/checking"
 	"github.com/multiversx/mx-chain-go/genesis/parsing"
 	processComp "github.com/multiversx/mx-chain-go/genesis/process"
 	"github.com/multiversx/mx-chain-go/process/block/sovereign"
@@ -243,5 +244,6 @@ func (rcf *sovereignRunTypeComponentsFactoryMidas) Create() (*runTypeComponents,
 		extraHeaderSigVerifierHolder:            rtc.extraHeaderSigVerifierHolder,
 		genesisBlockCreatorFactory:              processComp.NewSovereignGenesisBlockCreatorFactoryMidas(),
 		genesisMetaBlockCheckerCreator:          processComp.NewSovereignGenesisMetaBlockChecker(),
+		nodesSetupCheckerFactory: 				 checking.NewNodesSetupCheckerFactoryMidas(),
 	}, nil
 }

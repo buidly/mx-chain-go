@@ -82,7 +82,7 @@
   {
     "owner": "erd1gzsug2n6th3qztpvgnzqx640azvqkv5phmktrdq766tzxx0zt4jszw8672",
     "filename": "./config/genesisContracts/esdt-safe.wasm",
-    "init-parameters": "01@@40a1c42a7a5de2012c2c44c4036aafe8980b3281beecb1b41ed6962319e25d65",
+    "init-parameters": "01",
     "vm-type": "0500",
     "type": "esdt"
   },

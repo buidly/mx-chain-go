@@ -43,7 +43,8 @@ updateProxyMidas() {
 # disableFeeInFeeMarketContract - transaction executed on Devnet
 # unpauseEsdtSafeContract - transaction executed on Devnet
 # setGenesisContract - genesisSmartContracts.json updated to deploy Esdt Safe and Fee Market on Sovereign
-# updateSovereignConfig - sovereignConfig.toml updated with correct contract addresses for events
+
+updateSovereignConfig
 
 echo 'Preparing Observer...'
 prepareObserver

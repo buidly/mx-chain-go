@@ -26,6 +26,10 @@ source "$MULTIVERSXTESTNETSCRIPTSDIR/include/build.sh"
 WALLET_ADDRESS=$(echo "$(head -n 1 $(eval echo ${WALLET}))" | sed -n 's/.* for \([^-]*\)-----.*/\1/p')
 OUTFILE_PATH=$(eval echo "${TXS_OUTFILE_DIRECTORY}")
 
+# Addresses of mainchain contracts
+export ESDT_SAFE_ADDRESS="erd1qqqqqqqqqqqqqpgqmsq8tls6g5qztv8eajcl5jfaxavmljgut4jskthw4z"
+export FEE_MARKET_ADDRESS="erd1qqqqqqqqqqqqqpgquz2xhuxy0wpu9cq8csp4ezk86jmhnyjzt4jsqhs7k4"
+
 echo 'Wallet address:'
 echo $WALLET_ADDRESS
 echo 'Shard of address'
@@ -33,7 +37,8 @@ echo $(getShardOfAddress)
 
 ##############################################
 # Partial from sovereignBridge sovereignDeploy
-echo 'Deploying Header Verifier contract on Mainchain'
+updateSovereignConfig
+
 deployHeaderVerifierContract
 setEsdtSafeAddressInHeaderVerifier
 createObserver

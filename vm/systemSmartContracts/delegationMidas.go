@@ -248,6 +248,10 @@ func (d *delegationMidas) init(args *vmcommon.ContractCallInput) vmcommon.Return
 		return returnCode
 	}
 
+	// TODO:
+	//dStatus := createNewDelegationContractStatus()
+	//return d.delegateUser(args, initialOwnerFunds, initialOwnerFunds, ownerAddress, dStatus)
+
 	return vmcommon.Ok
 }
 

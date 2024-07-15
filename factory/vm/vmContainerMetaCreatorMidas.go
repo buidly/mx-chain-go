@@ -5,7 +5,6 @@ import (
 	"github.com/multiversx/mx-chain-go/errors"
 	"github.com/multiversx/mx-chain-go/process"
 	"github.com/multiversx/mx-chain-go/process/factory/metachain"
-	"github.com/multiversx/mx-chain-go/process/smartContract/hooks"
 	"github.com/multiversx/mx-chain-go/vm/systemSmartContracts"
 )
 
@@ -14,33 +13,24 @@ type vmContainerMetaFactoryMidas struct {
 }
 
 // NewVmContainerMetaFactory creates a new vm container meta factory
-func NewVmContainerMetaFactoryMidas(blockChainHookCreator hooks.BlockChainHookHandlerCreator,
+func NewVmContainerMetaFactoryMidas(
 	vmContextCreator systemSmartContracts.VMContextCreatorHandler,
 ) (*vmContainerMetaFactoryMidas, error) {
-	if check.IfNil(blockChainHookCreator) {
-		return nil, errors.ErrNilBlockChainHookCreator
-	}
 	if check.IfNil(vmContextCreator) {
 		return nil, errors.ErrNilVMContextCreator
 	}
 
 	return &vmContainerMetaFactoryMidas{
 		vmContainerMetaFactory: vmContainerMetaFactory{
-			blockChainHookHandlerCreator: blockChainHookCreator,
 			vmContextCreatorHandler:      vmContextCreator,
 		},
 	}, nil
 }
 
 // CreateVmContainerFactory will create a new vm container and factory for metachain
-func (vcmf *vmContainerMetaFactoryMidas) CreateVmContainerFactory(argsHook hooks.ArgBlockChainHook, args ArgsVmContainerFactory) (process.VirtualMachinesContainer, process.VirtualMachinesContainerFactory, error) {
-	blockChainHookImpl, err := vcmf.blockChainHookHandlerCreator.CreateBlockChainHookHandler(argsHook)
-	if err != nil {
-		return nil, nil, err
-	}
-
+func (vcmf *vmContainerMetaFactoryMidas) CreateVmContainerFactory(args ArgsVmContainerFactory) (process.VirtualMachinesContainer, process.VirtualMachinesContainerFactory, error) {
 	argsNewVmFactory := metachain.ArgsNewVMContainerFactory{
-		BlockChainHook:          blockChainHookImpl,
+		BlockChainHook:          args.BlockChainHook,
 		PubkeyConv:              args.PubkeyConv,
 		Economics:               args.Economics,
 		MessageSignVerifier:     args.MessageSignVerifier,

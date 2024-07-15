@@ -148,17 +148,12 @@ func (rcf *sovereignRunTypeComponentsFactoryMidas) Create() (*runTypeComponents,
 	}
 
 	sovVMContextCreator := systemSmartContracts.NewOneShardSystemVMEEICreator()
-	rtc.vmContainerMetaFactory, err = factoryVm.NewVmContainerMetaFactoryMidas(sovBlockChainHookHandlerFactory, sovVMContextCreator)
+	rtc.vmContainerMetaFactory, err = factoryVm.NewVmContainerMetaFactoryMidas(sovVMContextCreator)
 	if err != nil {
 		return nil, fmt.Errorf("sovereignRunTypeComponentsFactory - NewVmContainerMetaFactoryMidas failed: %w", err)
 	}
 
-	rtc.vmContainerShardFactory, err = factoryVm.NewVmContainerShardFactory(sovBlockChainHookHandlerFactory)
-	if err != nil {
-		return nil, fmt.Errorf("sovereignRunTypeComponentsFactory - NewVmContainerShardFactory failed: %w", err)
-	}
-
-	sovereignVmContainerShardCreator, err := factoryVm.NewSovereignVmContainerShardFactory(sovBlockChainHookHandlerFactory, rtc.vmContainerMetaFactory, rtc.vmContainerShardFactory)
+	sovereignVmContainerShardCreator, err := factoryVm.NewSovereignVmContainerShardFactory(rtc.vmContainerMetaFactory, rtc.vmContainerShardFactory)
 	if err != nil {
 		return nil, fmt.Errorf("sovereignRunTypeComponentsFactory - NewSovereignVmContainerShardFactory failed: %w", err)
 	}

@@ -407,8 +407,12 @@ func TestDelegationSystemSCMidas_ExecuteInitShouldWork(t *testing.T) {
 	assert.Equal(t, uint64(createdEpoch), dConf.CreatedNonce)
 	assert.Equal(t, big.NewInt(20).Uint64(), uint64(dConf.UnBondPeriodInEpochs))
 
-	_, err = d.getDelegationStatus()
-	assert.NotNil(t, err)
+	dStatus, err := d.getDelegationStatus()
+	assert.Nil(t, err)
+	assert.Equal(t, 0, len(dStatus.StakedKeys))
+	assert.Equal(t, 0, len(dStatus.NotStakedKeys))
+	assert.Equal(t, 0, len(dStatus.UnStakedKeys))
+	assert.Equal(t, uint64(0), dStatus.NumUsers)
 
 	fundKey := append([]byte(fundKeyPrefix), []byte{1}...)
 	_, err = d.getFund(fundKey)
@@ -1537,6 +1541,50 @@ func TestDelegationSystemSCMidas_ExecuteDelegate(t *testing.T) {
 	assert.Equal(t, uint64(1), dStatus.NumUsers)
 
 	_, dData, _ := d.getOrCreateDelegatorData(delegator1)
+	assert.Equal(t, fundKey, dData.ActiveFund)
+}
+
+func TestDelegationSystemSCMidas_ExecuteDelegateOwner(t *testing.T) {
+	t.Parallel()
+
+	ownerAddr := []byte("ownerAddr")
+	args := createMockArgumentsForDelegationMidas()
+	eei := createDefaultEei()
+	delegationsMap := map[string][]byte{}
+	delegationsMap[ownerKey] = ownerAddr
+	eei.storageUpdate[string(eei.scAddress)] = delegationsMap
+	args.Eei = eei
+	addValidatorAndStakingScToVmContextMidas(eei)
+	createDelegationManagerConfigMidas(eei, args.Marshalizer, big.NewInt(10))
+
+	vmInput := getDefaultVmInputForFuncMidas("delegate", [][]byte{ownerAddr, big.NewInt(15).Bytes()})
+	d, _ := NewDelegationSystemSCMidas(args)
+
+	_ = d.saveDelegationContractConfig(&DelegationConfig{
+		MaxDelegationCap:  big.NewInt(100),
+		InitialOwnerFunds: big.NewInt(100),
+	})
+	_ = d.saveGlobalFundData(&GlobalFundData{
+		TotalActive: big.NewInt(0),
+	})
+
+	// Default DelegationContractStatus will be created the first time the owner delegates
+	output := d.Execute(vmInput)
+	assert.Equal(t, vmcommon.Ok, output)
+
+	fundKey := append([]byte(fundKeyPrefix), []byte{1}...)
+	dFund, _ := d.getFund(fundKey)
+	assert.Equal(t, big.NewInt(15), dFund.Value)
+	assert.Equal(t, ownerAddr, dFund.Address)
+	assert.Equal(t, active, dFund.Type)
+
+	dGlobalFund, _ := d.getGlobalFundData()
+	assert.Equal(t, big.NewInt(15), dGlobalFund.TotalActive)
+
+	dStatus, _ := d.getDelegationStatus()
+	assert.Equal(t, uint64(1), dStatus.NumUsers)
+
+	_, dData, _ := d.getOrCreateDelegatorData(ownerAddr)
 	assert.Equal(t, fundKey, dData.ActiveFund)
 }
 

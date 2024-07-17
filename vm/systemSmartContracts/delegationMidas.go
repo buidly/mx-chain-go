@@ -248,9 +248,13 @@ func (d *delegationMidas) init(args *vmcommon.ContractCallInput) vmcommon.Return
 		return returnCode
 	}
 
-	// TODO:
-	//dStatus := createNewDelegationContractStatus()
-	//return d.delegateUser(args, initialOwnerFunds, initialOwnerFunds, ownerAddress, dStatus)
+	dStatus := createNewDelegationContractStatus()
+
+	err := d.saveDelegationStatus(dStatus)
+	if err != nil {
+		d.eei.AddReturnMessage(err.Error())
+		return vmcommon.UserError
+	}
 
 	return vmcommon.Ok
 }
@@ -314,8 +318,24 @@ func (d *delegationMidas) delegate(args *vmcommon.ContractCallInput) vmcommon.Re
 
 	dStatus, err := d.getDelegationStatus()
 	if err != nil {
-		d.eei.AddReturnMessage(err.Error())
-		return vmcommon.UserError
+		if !d.isOwner(delegatorAddress) {
+			d.eei.AddReturnMessage(err.Error())
+			return vmcommon.UserError
+		}
+
+		isNew, _, otherErr := d.getOrCreateDelegatorData(delegatorAddress)
+		if otherErr != nil {
+			d.eei.AddReturnMessage(otherErr.Error())
+			return vmcommon.UserError
+		}
+
+		// Allow owner to create empty delegation contract status in case it is the first time delegate was called
+		if !isNew {
+			d.eei.AddReturnMessage(err.Error())
+			return vmcommon.UserError
+		}
+
+		dStatus = createNewDelegationContractStatus()
 	}
 
 	return d.delegateUser(args, totalPowerAdded, delegatorAddress, dStatus)

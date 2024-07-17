@@ -9,6 +9,7 @@ source "$MULTIVERSXTESTNETSCRIPTSDIR/variables.sh"
 source "$MULTIVERSXTESTNETSCRIPTSDIR/include/config.sh"
 source "$MULTIVERSXTESTNETSCRIPTSDIR/include/build.sh"
 source "$MULTIVERSXTESTNETSCRIPTSDIR/include/validators.sh"
+export USE_ELASTICSEARCH=0
 source "$MULTIVERSXTESTNETSCRIPTSDIR/include/observers.sh"
 source "$MULTIVERSXTESTNETSCRIPTSDIR/include/tools.sh"
 

@@ -11,7 +11,7 @@ source $SOVEREIGN_BRIDGE_PATH/config/configs.cfg
 source $SOVEREIGN_BRIDGE_PATH/config/helper.cfg
 source $SOVEREIGN_BRIDGE_PATH/config/esdt-safe.snippets.sh
 source $SOVEREIGN_BRIDGE_PATH/config/fee-market.snippets.sh
-source $SOVEREIGN_BRIDGE_PATH/config/multisig-verifier.snippets.sh
+source $SOVEREIGN_BRIDGE_PATH/config/header-verifier.snippets.sh
 source $SOVEREIGN_BRIDGE_PATH/config/token.snippets.sh
 source $SOVEREIGN_BRIDGE_PATH/config/common.snippets.sh
 source $SOVEREIGN_BRIDGE_PATH/config/py.snippets.sh

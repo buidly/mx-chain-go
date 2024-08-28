@@ -11,7 +11,7 @@ source $SOVEREIGN_BRIDGE_PATH/config/configs.cfg
 source $SOVEREIGN_BRIDGE_PATH/config/helper.cfg
 source $SOVEREIGN_BRIDGE_PATH/config/esdt-safe.snippets.sh
 source $SOVEREIGN_BRIDGE_PATH/config/fee-market.snippets.sh
-source $SOVEREIGN_BRIDGE_PATH/config/multisig-verifier.snippets.sh
+source $SOVEREIGN_BRIDGE_PATH/config/header-verifier.snippets.sh
 source $SOVEREIGN_BRIDGE_PATH/config/token.snippets.sh
 source $SOVEREIGN_BRIDGE_PATH/config/common.snippets.sh
 source $SOVEREIGN_BRIDGE_PATH/config/py.snippets.sh
@@ -40,10 +40,11 @@ updateProxyMidas() {
 # deployEsdtSafeContract - contract already deployed on Devnet
 # deployFeeMarketContract - contract already deployed on Devnet
 # setFeeMarketAddress - transaction executed on Devnet
-# disableFeeMarketContract - transaction executed on Devnet
+# disableFeeInFeeMarketContract - transaction executed on Devnet
 # unpauseEsdtSafeContract - transaction executed on Devnet
 # setGenesisContract - genesisSmartContracts.json updated to deploy Esdt Safe and Fee Market on Sovereign
-# updateSovereignConfig - sovereignConfig.toml updated with correct contract addresses for events
+
+updateSovereignConfig
 
 echo 'Preparing Observer...'
 prepareObserver

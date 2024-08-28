@@ -13,7 +13,7 @@ source $SOVEREIGN_BRIDGE_PATH/config/configs.cfg
 source $SOVEREIGN_BRIDGE_PATH/config/helper.cfg
 source $SOVEREIGN_BRIDGE_PATH/config/esdt-safe.snippets.sh
 source $SOVEREIGN_BRIDGE_PATH/config/fee-market.snippets.sh
-source $SOVEREIGN_BRIDGE_PATH/config/multisig-verifier.snippets.sh
+source $SOVEREIGN_BRIDGE_PATH/config/header-verifier.snippets.sh
 source $SOVEREIGN_BRIDGE_PATH/config/token.snippets.sh
 source $SOVEREIGN_BRIDGE_PATH/config/common.snippets.sh
 source $SOVEREIGN_BRIDGE_PATH/config/py.snippets.sh
@@ -24,6 +24,7 @@ source "$MULTIVERSXTESTNETSCRIPTSDIR/include/config.sh"
 source "$MULTIVERSXTESTNETSCRIPTSDIR/include/build.sh"
 
 WALLET_ADDRESS=$(echo "$(head -n 1 $(eval echo ${WALLET}))" | sed -n 's/.* for \([^-]*\)-----.*/\1/p')
+OUTFILE_PATH=$(eval echo "${TXS_OUTFILE_DIRECTORY}")
 
 echo 'Wallet address:'
 echo $WALLET_ADDRESS
@@ -32,15 +33,14 @@ echo $(getShardOfAddress)
 
 ##############################################
 # Partial from sovereignBridge sovereignDeploy
-echo 'Deploying Multisig Verifier contract on Mainchain'
-deployMultisigVerifierContract
-setEsdtSafeAddress
-setMultisigAddress
+echo 'Deploying Header Verifier contract on Mainchain'
+deployHeaderVerifierContract
+setEsdtSafeAddressInHeaderVerifier
+createObserver
+setHeaderVerifierAddressInEsdtSafe
 
-echo 'Starting Bridge Service' $WALLET $PROXY $ESDT_SAFE_ADDRESS $MULTISIG_VERIFIER_ADDRESS $TESTNETDIR
+echo 'Starting Bridge Service' $WALLET $PROXY $ESDT_SAFE_ADDRESS $HEADER_VERIFIER_ADDRESS $TESTNETDIR
 updateAndStartBridgeService
-
-setSovereignBridgeAddress
 
 echo 'Starting Midas Sovereign Chain...'
 ./sovereignStart.sh $TESTNETMODE
@@ -50,5 +50,5 @@ deployObserver
 
 echo 'Sending transactions to Chain Esdt and Fee Market contracts on Sovereign'
 setFeeMarketAddressSovereign
-disableFeeMarketContractSovereign
+disableFeeInFeeMarketContractSovereign
 unpauseEsdtSafeContractSovereign
